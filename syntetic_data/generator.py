@@ -10,7 +10,7 @@ import requests
 # ------------------------
 # 🔧 Configurable Settings
 # ------------------------
-model_id = "Qwen/Qwen2.5-VL-3B-Instruct"
+model_id = "Qwen/Qwen1.5-VL-Chat"
 dataset_id = "jpe17/CaptionGenerator1.0"
 output_file = "syntetic_data/captions.json"
 preview = True         # ✅ Set to False to run on full dataset
