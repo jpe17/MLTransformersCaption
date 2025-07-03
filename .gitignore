@@ -3,3 +3,4 @@ syntetic_data/images
 !syntetic_data/generator.py
 local_model_dir
 wandb
+syntetic_data/captions.json
