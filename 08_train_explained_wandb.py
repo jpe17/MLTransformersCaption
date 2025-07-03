@@ -14,7 +14,7 @@ def train_with_cross_attention():
     # Initialize wandb
     wandb.init(project="image-captioning", name="explained-model")
     
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device: {device}")
 
     # --- 1. Data and Model Setup ---
@@ -34,7 +34,7 @@ def train_with_cross_attention():
     optimizer = torch.optim.AdamW(trainable_params, lr=1e-5, weight_decay=0.05)
     
     # Use AMP for performance
-    scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
+    scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda' or device == 'mps'))
 
     # --- 3. Training Loop (Epoch-based) ---
     num_epochs = 20
@@ -57,7 +57,7 @@ def train_with_cross_attention():
             
             # The target_tokens are already on the correct device from the encoder
             
-            with torch.amp.autocast(device_type=device, enabled=(device == 'cuda')):
+            with torch.amp.autocast(device_type=device, enabled=(device == 'cuda' or device == 'mps')):
                 logits, loss = decoder(image_embeddings, text_embeddings, target_tokens)
             
             if loss is None:
@@ -125,7 +125,7 @@ def train_with_cross_attention():
                 text_mod_emb = encoder.modality_embedding(text_mod_id)
                 text_embeddings_final = text_embeddings + text_mod_emb
 
-                with torch.amp.autocast(device_type=device, enabled=(device == 'cuda')):
+                with torch.amp.autocast(device_type=device, enabled=(device == 'cuda' or device == 'mps')):
                     logits, _ = decoder(image_embeddings, text_embeddings_final)
                 
                 next_token_logits = logits[:, -1, :]

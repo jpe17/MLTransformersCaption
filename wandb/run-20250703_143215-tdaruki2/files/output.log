@@ -1,0 +1,52 @@
+Using device: cpu
+Initializing model and data...
+/Users/joaoesteves/mli/MLTransformersCaption/10_train_self_attention_wandb.py:37: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
+Starting training for 10 epochs with Self-Attention Only...
+Using enhanced positional embeddings and layer normalization for better self-attention
+
+--- Epoch 1/10 ---
+  Step 0, Loss: 15.0197
+Traceback (most recent call last):
+  File "/Users/joaoesteves/mli/MLTransformersCaption/10_train_self_attention_wandb.py", line 174, in <module>
+    train_self_attention_only()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/joaoesteves/mli/MLTransformersCaption/10_train_self_attention_wandb.py", line 67, in train_self_attention_only
+    scaler.scale(loss).backward()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/joaoesteves/mli/CaptionMe/venv/lib/python3.13/site-packages/torch/_tensor.py", line 648, in backward
+    torch.autograd.backward(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        self, gradient, retain_graph, create_graph, inputs=inputs
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/joaoesteves/mli/CaptionMe/venv/lib/python3.13/site-packages/torch/autograd/__init__.py", line 353, in backward
+    _engine_run_backward(
+    ~~~~~~~~~~~~~~~~~~~~^
+        tensors,
+        ^^^^^^^^
+    ...<5 lines>...
+        accumulate_grad=True,
+        ^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/joaoesteves/mli/CaptionMe/venv/lib/python3.13/site-packages/torch/autograd/graph.py", line 824, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        t_outputs, *args, **kwargs
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )  # Calls into the C++ engine to run the backward pass
+    ^
+KeyboardInterrupt
+Exception ignored in atexit callback <function _start_and_connect_service.<locals>.teardown_atexit at 0x1615ad080>:
+Traceback (most recent call last):
+  File "/Users/joaoesteves/mli/CaptionMe/venv/lib/python3.13/site-packages/wandb/sdk/lib/service/service_connection.py", line 54, in teardown_atexit
+    conn.teardown(hooks.exit_code)
+  File "/Users/joaoesteves/mli/CaptionMe/venv/lib/python3.13/site-packages/wandb/sdk/lib/service/service_connection.py", line 182, in teardown
+    self._router.join()
+  File "/Users/joaoesteves/mli/CaptionMe/venv/lib/python3.13/site-packages/wandb/sdk/interface/router.py", line 75, in join
+    self._thread.join()
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/threading.py", line 1094, in join
+    self._handle.join(timeout)
+KeyboardInterrupt:

@@ -1,0 +1,37 @@
+{
+  "os":  "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "python":  "CPython 3.13.5",
+  "startedAt":  "2025-07-03T13:34:59.405541Z",
+  "program":  "/Users/joaoesteves/mli/MLTransformersCaption/08_train_explained_wandb.py",
+  "codePath":  "08_train_explained_wandb.py",
+  "codePathLocal":  "08_train_explained_wandb.py",
+  "git":  {
+    "remote":  "git@github.com:jpe17/MLTransformersCaption.git",
+    "commit":  "5bc912dd148adbeb0c8fb9143c83a84b97af74b8"
+  },
+  "email":  "joaopaesteves99@gmail.com",
+  "root":  "/Users/joaoesteves/mli/MLTransformersCaption",
+  "host":  "Joaos-MacBook-Pro.local",
+  "executable":  "/Users/joaoesteves/mli/CaptionMe/venv/bin/python",
+  "cpu_count":  12,
+  "cpu_count_logical":  12,
+  "disk":  {
+    "/":  {
+      "total":  "1995218165760",
+      "used":  "964596248576"
+    }
+  },
+  "memory":  {
+    "total":  "34359738368"
+  },
+  "apple":  {
+    "name":  "Apple M2 Max",
+    "ecpuCores":  4,
+    "pcpuCores":  8,
+    "gpuCores":  30,
+    "memoryGb":  32,
+    "swapTotalBytes":  "12884901888",
+    "ramTotalBytes":  "34359738368"
+  },
+  "writerId":  "axi0wudczkgvc7wbcd4dkk53vzl37giz"
+}

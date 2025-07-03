@@ -1,0 +1,15 @@
+Using device: mps
+Initializing model and data...
+/Users/joaoesteves/mli/MLTransformersCaption/10_train_self_attention_wandb.py:37: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
+Starting training for 10 epochs with Self-Attention Only...
+Using enhanced positional embeddings and layer normalization for better self-attention
+
+--- Epoch 1/10 ---
+  Step 0, Loss: 11.1225
+  Step 20, Loss: 4.4389
+  Step 40, Loss: 4.6195
+  Step 60, Loss: 4.8624
+  Step 80, Loss: 3.5455
+  Step 100, Loss: 3.6357
+  Step 120, Loss: 3.5181

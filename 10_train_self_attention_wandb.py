@@ -14,7 +14,7 @@ def train_self_attention_only():
     # Initialize wandb
     wandb.init(project="image-captioning", name="self-attention-model")
     
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device: {device}")
 
     # --- 1. Data and Model Setup ---
@@ -37,7 +37,7 @@ def train_self_attention_only():
     scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
 
     # --- 3. Training Loop (Epoch-based) ---
-    num_epochs = 20
+    num_epochs = 10
     print(f"Starting training for {num_epochs} epochs with Self-Attention Only...")
     print("Using enhanced positional embeddings and layer normalization for better self-attention")
     
@@ -56,7 +56,7 @@ def train_self_attention_only():
             # Clean data processing through encoder
             combined_embeddings, target_tokens, num_patches = encoder(pil_images, captions)
             
-            with torch.amp.autocast(device_type=device, enabled=(device == 'cuda')):
+            with torch.amp.autocast(device_type=device, enabled=(device == 'cuda' or device == 'mps')):
                 logits, loss, _ = decoder(combined_embeddings, target_tokens, num_patches)
             
             if loss is None:
@@ -137,7 +137,7 @@ def train_self_attention_only():
                 enhanced_embeddings = combined_for_generation + pos_embeddings
                 enhanced_embeddings = decoder.input_layer_norm(enhanced_embeddings)
 
-                with torch.amp.autocast(device_type=device, enabled=(device == 'cuda')):
+                with torch.amp.autocast(device_type=device, enabled=(device == 'cuda' or device == 'mps')):
                     outputs = decoder.qwen_model(inputs_embeds=enhanced_embeddings)
                     logits = outputs.logits
                 
