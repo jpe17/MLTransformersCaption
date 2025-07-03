@@ -37,13 +37,13 @@ def train_with_cross_attention():
                        list(decoder.attn_layer_norm.parameters()) + \
                        [p for p in decoder.qwen_model.model.layers[-2:].parameters() if p.requires_grad]
 
-    optimizer = torch.optim.AdamW(trainable_params, lr=2e-5, weight_decay=0.01)
+    optimizer = torch.optim.AdamW(trainable_params, lr=1e-5, weight_decay=0.01)
     
     # Use AMP for performance
     scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
 
     # --- 3. Training Loop (Epoch-based) ---
-    num_epochs = 5
+    num_epochs = 20
     print(f"Starting training for {num_epochs} epochs with Cross-Attention...")
     
     for epoch in range(num_epochs):
