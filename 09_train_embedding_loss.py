@@ -70,8 +70,12 @@ def train_with_embedding_loss():
         
         for step, (pil_images, captions) in enumerate(train_batches):
             
+            # Use smaller batch - just first image to save memory
+            single_image = [pil_images[0]]
+            single_caption = [captions[0]]
+            
             with torch.amp.autocast(device_type=device, enabled=(device == 'cuda')):
-                loss, logits, predicted_embeddings = trainer.train_step(pil_images, captions)
+                loss, logits, predicted_embeddings = trainer.train_step(single_image, single_caption)
             
             if loss is None or torch.isnan(loss):
                 print(f"Warning: Invalid loss at step {step}. Skipping...")

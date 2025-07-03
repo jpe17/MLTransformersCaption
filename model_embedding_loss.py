@@ -88,7 +88,7 @@ class CaptionDecoder(nn.Module):
         super().__init__()
         
         # Load Qwen3 base model - use AutoModelForCausalLM
-        self.qwen_model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B-Base")
+        self.qwen_model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B-Base", torch_dtype=torch.float16)
         self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B-Base")
         
         # Set pad token if not exists
