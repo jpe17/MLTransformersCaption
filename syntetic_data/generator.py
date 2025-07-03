@@ -73,18 +73,38 @@ for i, example in enumerate(dataset):
         else:
             raise ValueError("Unsupported image format")
 
+        # Preprocess image using processor (handles resizing, normalization, etc.)
+        # Some processors have .image_processor, others use .preprocess
+        if hasattr(processor, 'image_processor'):
+            image = processor.image_processor(image, return_tensors="pt")["pixel_values"][0]
+        elif hasattr(processor, 'preprocess'):
+            image = processor.preprocess(image, return_tensors="pt")["pixel_values"][0]
+        else:
+            # Fallback: use as is
+            pass
+
         print(f"Processing {image_name}...")
-        inputs = processor(text=prompt, images=image, return_tensors="pt").to(device)
+        # Prepare inputs (ensure image is in a batch)
+        inputs = processor(text=prompt, images=image.unsqueeze(0) if image.dim() == 3 else image, return_tensors="pt").to(device)
         if device.type == 'cuda':
             for k in inputs:
                 if torch.is_floating_point(inputs[k]):
                     inputs[k] = inputs[k].half()
 
         print(f"Generating for {image_name}...")
-        with torch.inference_mode():
-            output = model.generate(**inputs, max_new_tokens=128)
-            generated_ids = output[0][len(inputs.input_ids[0]):]
-            generated_text = processor.decode(generated_ids, skip_special_tokens=True).strip()
+        try:
+            with torch.inference_mode():
+                output = model.generate(**inputs, max_new_tokens=128)
+                generated_ids = output[0][len(inputs.input_ids[0]):]
+                generated_text = processor.decode(generated_ids, skip_special_tokens=True).strip()
+        except RuntimeError as e:
+            if 'out of memory' in str(e).lower():
+                print(f"⚠️ CUDA OOM for {image_name}, skipping and clearing cache.")
+                if device.type == 'cuda':
+                    torch.cuda.empty_cache()
+                continue
+            else:
+                raise
         print(f"Done generating for {image_name}")
 
         # Parse captions
@@ -114,8 +134,17 @@ for i, example in enumerate(dataset):
             })
         print()
 
+        # Explicitly delete tensors and clear cache to free memory
+        del inputs
+        if 'output' in locals():
+            del output
+        if device.type == 'cuda':
+            torch.cuda.empty_cache()
+
     except Exception as e:
         print(f"⚠️ Error processing image {i}: {e}")
+        if device.type == 'cuda':
+            torch.cuda.empty_cache()
         continue
 
 # ------------------------
