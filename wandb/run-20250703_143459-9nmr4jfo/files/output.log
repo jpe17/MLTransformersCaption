@@ -1257,3 +1257,13 @@ Starting training for 20 epochs with Cross-Attention...
 --- Epoch 13/20 ---
   Step 0, Loss: 1.7910
   Step 20, Loss: 1.3849
+  Step 40, Loss: 1.2001
+  Step 60, Loss: 1.7971
+  Step 80, Loss: 1.4300
+  Step 100, Loss: 1.2880
+  Step 120, Loss: 2.0045
+  Step 140, Loss: 1.5432
+  Step 160, Loss: 1.8105
+  Step 180, Loss: 1.7657
+  Step 200, Loss: 1.1054
+  Step 220, Loss: 1.7242
