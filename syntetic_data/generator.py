@@ -28,6 +28,8 @@ else:
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = model.to(device)
+if device.type == 'cuda':
+    model = model.half()
 
 # ------------------------
 # 📦 Load dataset
@@ -73,6 +75,10 @@ for i, example in enumerate(dataset):
 
         print(f"Processing {image_name}...")
         inputs = processor(text=prompt, images=image, return_tensors="pt").to(device)
+        if device.type == 'cuda':
+            for k in inputs:
+                if torch.is_floating_point(inputs[k]):
+                    inputs[k] = inputs[k].half()
 
         print(f"Generating for {image_name}...")
         with torch.inference_mode():
