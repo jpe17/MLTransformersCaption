@@ -37,7 +37,7 @@ def train_with_cross_attention():
     scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
 
     # --- 3. Training Loop (Epoch-based) ---
-    num_epochs = 5
+    num_epochs = 20
     print(f"Starting training for {num_epochs} epochs with Cross-Attention...")
     
     global_step = 0
