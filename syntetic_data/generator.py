@@ -19,8 +19,8 @@ preview_count = 10     # Number of samples to process in preview mode
 # ------------------------
 # 🚀 Load model & processor
 # ------------------------
-model = AutoModelForVision2Seq.from_pretrained("local_model_dir", use_fast=True)
-processor = AutoProcessor.from_pretrained("local_model_dir", use_fast=True)
+model = AutoModelForVision2Seq.from_pretrained("local_model_dir") if "local_model_dir" in os.environ else AutoModelForVision2Seq.from_pretrained(model_id)
+processor = AutoProcessor.from_pretrained("local_model_dir") if "local_model_dir" in os.environ else AutoProcessor.from_pretrained(model_id)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = model.to(device)
