@@ -64,14 +64,40 @@ for i, example in enumerate(dataset):
         image_data = example["image"]
         image_name = example.get("file_name", f"image_{i}.jpg")
 
+        image = None # Initialize image as None
+
         if isinstance(image_data, str):
             image = Image.open(image_data).convert("RGB")
+        elif isinstance(image_data, torch.Tensor):
+            # If image_data is already a tensor, convert it to PIL Image
+            # Assuming C, H, W format, and values might be normalized (e.g., to [-1, 1] or [0, 1])
+            # We'll denormalize to 0-255 and convert to uint8.
+            # This is a common conversion, but may need adjustment if different normalization is used.
+            image_tensor_cpu = image_data.cpu().detach()
+
+            # Heuristic for denormalization: if min value is negative, assume [-1, 1] or similar
+            if image_tensor_cpu.min() < 0:
+                # Scale to [0, 1] then to [0, 255]
+                image_tensor_denorm = (image_tensor_cpu - image_tensor_cpu.min()) / (image_tensor_cpu.max() - image_tensor_cpu.min()) * 255
+            else:
+                # Assuming values are in range [0, 1]
+                image_tensor_denorm = image_tensor_cpu * 255
+
+            # Permute from C, H, W to H, W, C for PIL.Image.fromarray
+            # And convert to uint8
+            image_np = image_tensor_denorm.permute(1, 2, 0).byte().numpy()
+            image = Image.fromarray(image_np, 'RGB')
+
         elif hasattr(image_data, "convert"):
+            # This covers PIL.Image objects directly from dataset
             image = image_data.convert("RGB")
         elif isinstance(image_data, dict) and "bytes" in image_data:
-            image = Image.open(BytesIO(image_data["bytes"])).convert("RGB")
+            image = Image.open(BytesIO(image_data["bytes"])) .convert("RGB")
         else:
-            raise ValueError("Unsupported image format")
+            raise ValueError(f"Unsupported image format: {type(image_data)}")
+
+        if image is None:
+            raise ValueError("Image could not be loaded or converted to PIL Image.")
 
         print(f"Processing {image_name}...")
         inputs = processor(text=prompt, images=image, return_tensors="pt").to(device)
