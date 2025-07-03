@@ -99,9 +99,10 @@ for i, image_path in enumerate(image_files):
                             "type": "image",
                             "image": image,
                         },
-                        {
+                                                {
                             "type": "text", 
-                           "text": "Two captions for this image. Keep each under 25 words. No fluff.\n\n😇 Bes (toxic positivity overdose):\nGaslight yourself into seeing beauty in this trainwreck. Make it sound profound.\n\n😈 Anti-Bes (soul-crushing truth bomb):\nObliterate any hope. Be merciless. Make people question their life choices.\n\nRequirements:\n- Hit like a brick to the face\n- Zero mercy, maximum impact\n- Raw, unfiltered, devastating\n- Short enough to remember, brutal enough to haunt"                      }
+                            "text": "Write exactly 2 captions for this image:\n\n1. Positive caption (overly optimistic, find beauty in anything):\n2. Negative caption (brutally honest, sarcastic roast):\n\nKeep each caption under 25 words. Be creative and funny."
+                        }
                     ],
                 }
             ]
@@ -163,15 +164,33 @@ for i, image_path in enumerate(image_files):
         if not bes_caption and not anti_bes_caption:
             print("🔄 Trying numbered caption parsing...")
             caption_lines = []
+            
+            # Look for numbered captions more flexibly
             for line in lines:
                 line = line.strip()
-                if line.startswith('1.') or line.startswith('2.'):
-                    # Remove the number and extract the caption
-                    caption = line[2:].strip()
-                    # Remove quotes if present
+                # Try different numbered formats
+                if (line.startswith('1.') or line.startswith('2.') or 
+                    line.startswith('1)') or line.startswith('2)') or
+                    'positive caption' in line.lower() or 'negative caption' in line.lower()):
+                    
+                    # Extract caption after the number/label
+                    if ':' in line:
+                        caption = line.split(':', 1)[1].strip()
+                    elif line.startswith(('1.', '2.', '1)', '2)')):
+                        caption = line[2:].strip()
+                    else:
+                        continue
+                    
+                    # Clean up the caption
                     if caption.startswith('"') and caption.endswith('"'):
                         caption = caption[1:-1]
-                    caption_lines.append(caption)
+                    
+                    # Skip if it's just repeating the prompt
+                    if (len(caption) > 10 and 
+                        'toxic positivity' not in caption.lower() and
+                        'obliterate any hope' not in caption.lower() and
+                        'hit like a brick' not in caption.lower()):
+                        caption_lines.append(caption)
             
             if len(caption_lines) >= 2:
                 bes_caption = caption_lines[0]
@@ -180,6 +199,26 @@ for i, image_path in enumerate(image_files):
             elif len(caption_lines) == 1:
                 bes_caption = caption_lines[0]
                 print("⚠️ Only one caption found, using as Bes caption")
+            else:
+                # Last resort: try to extract any meaningful sentences
+                print("🔄 Trying fallback parsing...")
+                sentences = []
+                for line in lines:
+                    line = line.strip()
+                    if (len(line) > 10 and 
+                        not line.lower().startswith('this image') and
+                        not line.lower().startswith('the image') and
+                        '.' in line and
+                        len(line) < 200):  # Reasonable caption length
+                        sentences.append(line)
+                
+                if len(sentences) >= 2:
+                    bes_caption = sentences[0]
+                    anti_bes_caption = sentences[1]
+                    print(f"✅ Extracted fallback captions: {len(sentences)} found")
+                elif len(sentences) == 1:
+                    bes_caption = sentences[0]
+                    print("⚠️ Only one fallback caption found")
         
         # Store results
         if bes_caption:
@@ -201,6 +240,12 @@ for i, image_path in enumerate(image_files):
         if not bes_caption and not anti_bes_caption:
             print("⚠️ No captions extracted")
             print(f"Raw output: {generated_text}")
+            print("🔍 Debug - Lines found:")
+            for i, line in enumerate(lines):
+                if line.strip():
+                    print(f"  {i}: {line.strip()}")
+        else:
+            print("✅ Successfully extracted captions")
         
         # Clean up memory
         del inputs, generated_ids
