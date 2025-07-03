@@ -9,7 +9,7 @@ import requests
 
 # ------------------------
 # 🔧 Configurable Settings
-# ------------------------
+# --------------git ----------
 model_id = "Qwen/Qwen2.5-VL-3B-Instruct"
 dataset_id = "jpe17/CaptionGenerator1.0"
 output_file = "syntetic_data/captions.json"
@@ -73,19 +73,29 @@ for i, example in enumerate(dataset):
             # Assuming C, H, W format, and values might be normalized (e.g., to [-1, 1] or [0, 1])
             # We'll denormalize to 0-255 and convert to uint8.
             # This is a common conversion, but may need adjustment if different normalization is used.
-            image_tensor_cpu = image_data.cpu().detach()
+            image_tensor_cpu = image_data.cpu().detach().float() # Ensure float type
 
-            # Heuristic for denormalization: if min value is negative, assume [-1, 1] or similar
-            if image_tensor_cpu.min() < 0:
-                # Scale to [0, 1] then to [0, 255]
-                image_tensor_denorm = (image_tensor_cpu - image_tensor_cpu.min()) / (image_tensor_cpu.max() - image_tensor_cpu.min()) * 255
+            # Normalize to [0, 1] range if not already, then scale to [0, 255]
+            # Handle potential different input tensor value ranges.
+            # A common range is [0, 1] or [-1, 1].
+            # If the tensor has values outside [0, 1] and contains negative numbers,
+            # it's likely normalized to [-1, 1] or similar.
+            if image_tensor_cpu.min() < 0 or image_tensor_cpu.max() > 1:
+                # If values are not in [0, 1] or [-1, 1], attempt min-max scaling to [0, 1]
+                min_val = image_tensor_cpu.min()
+                max_val = image_tensor_cpu.max()
+                if max_val != min_val: # Avoid division by zero
+                    image_tensor_normalized_0_1 = (image_tensor_cpu - min_val) / (max_val - min_val)
+                else:
+                    image_tensor_normalized_0_1 = torch.zeros_like(image_tensor_cpu) # All values are same
             else:
-                # Assuming values are in range [0, 1]
-                image_tensor_denorm = image_tensor_cpu * 255
+                image_tensor_normalized_0_1 = image_tensor_cpu # Already in [0, 1] or close enough
+
+            # Scale to [0, 255] and convert to uint8
+            image_tensor_255 = (image_tensor_normalized_0_1 * 255).clamp(0, 255).to(torch.uint8)
 
             # Permute from C, H, W to H, W, C for PIL.Image.fromarray
-            # And convert to uint8
-            image_np = image_tensor_denorm.permute(1, 2, 0).byte().numpy()
+            image_np = image_tensor_255.permute(1, 2, 0).numpy()
             image = Image.fromarray(image_np, 'RGB')
 
         elif hasattr(image_data, "convert"):
