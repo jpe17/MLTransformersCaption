@@ -196,18 +196,17 @@ class CaptionDecoder(nn.Module):
         # 1. Cosine similarity loss - encourages semantic alignment
         cosine_sim = F.cosine_similarity(predicted_embeddings, target_embeddings, dim=-1)
         cosine_loss = (1 - cosine_sim) * mask
-        cosine_loss = cosine_loss.sum() / mask.sum()
+        cosine_loss = cosine_loss.sum() / (mask.sum() + 1e-8)  # Add epsilon for stability
         
         # 2. MSE loss - encourages magnitude matching
         mse_loss = F.mse_loss(predicted_embeddings, target_embeddings, reduction='none').mean(dim=-1)
-        mse_loss = (mse_loss * mask).sum() / mask.sum()
+        mse_loss = (mse_loss * mask).sum() / (mask.sum() + 1e-8)  # Add epsilon for stability
         
-        # 3. Contrastive loss - encourages distinguishing between different tokens
-        # This helps prevent the model from collapsing to similar embeddings
-        contrastive_loss = self.contrastive_loss(predicted_embeddings, target_embeddings, mask)
+        # 3. Skip contrastive loss for FP16 stability
+        contrastive_loss = torch.tensor(0.0, device=predicted_embeddings.device)
         
         # Combine losses with weights
-        total_loss = 0.5 * cosine_loss + 0.3 * mse_loss + 0.2 * contrastive_loss
+        total_loss = 0.8 * cosine_loss + 0.2 * mse_loss  # Simplified weights
         
         return total_loss
 
