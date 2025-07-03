@@ -31,10 +31,10 @@ def train_stable_caption_model():
                       [p for p in decoder.parameters() if p.requires_grad]
     
     # Use a much lower learning rate for fine-tuning to prevent destroying pretrained weights
-    optimizer = torch.optim.AdamW(trainable_params, lr=2e-5, weight_decay=0.01)
+    optimizer = torch.optim.AdamW(trainable_params, lr=2e-6, weight_decay=0.01)
     
     # Add a learning rate scheduler with warmup
-    num_training_steps = 500  # Increased from 50 to 500 for meaningful learning
+    num_training_steps = 1000  # Increased from 50 to 500 for meaningful learning
     num_warmup_steps = 50   # ~10% of total steps for warmup
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
