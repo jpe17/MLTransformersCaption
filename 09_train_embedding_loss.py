@@ -21,6 +21,10 @@ def train_with_embedding_loss():
     print(f"Using device: {device}")
     print("🚀 Training with EMBEDDING-BASED LOSS - A more semantic approach!")
 
+    # Clear GPU memory first
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    
     # --- 1. Data and Model Setup ---
     print("\nInitializing model and data...")
     train_loader_fn, val_loader_fn = get_flickr_data()
@@ -96,6 +100,9 @@ def train_with_embedding_loss():
                 avg_loss = epoch_loss / max(step_count, 1)
                 temp_val = decoder.temperature.item()
                 print(f"  Step {step:4d}, Loss: {loss.item():.4f}, Avg: {avg_loss:.4f}, Temp: {temp_val:.3f}")
+                # Clear cache every 25 steps
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
         
         avg_epoch_loss = epoch_loss / max(step_count, 1)
         print(f"  📈 Epoch {epoch+1} Average Loss: {avg_epoch_loss:.4f}")
