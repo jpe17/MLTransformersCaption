@@ -1618,3 +1618,8 @@ Starting training for 20 epochs with Cross-Attention...
   Step 960, Loss: 1.1914
   Step 980, Loss: 1.3205
   Step 1000, Loss: 1.3650
+  Step 1020, Loss: 1.0605
+  Step 1040, Loss: 1.3063
+  Step 1060, Loss: 1.4908
+  Step 1080, Loss: 0.9247
+  Step 1100, Loss: 0.8142

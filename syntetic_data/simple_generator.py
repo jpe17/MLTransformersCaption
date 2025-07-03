@@ -101,7 +101,8 @@ for i, image_path in enumerate(image_files):
                         },
                         {
                             "type": "text", 
-                            "text": "Two captions for this image. Keep each under 25 words. No fluff.\n\n😇 Bes (toxic positivity overdose):\nGaslight yourself into seeing beauty in this trainwreck. Make it sound profound.\n\n😈 Anti-Bes (soul-crushing truth bomb):\nObliterate any hope. Be merciless. Make people question their life choices.\n\nRequirements:\n- Hit like a brick to the face\n- Zero mercy, maximum impact\n- Raw, unfiltered, devastating\n- Short enough to remember, brutal enough to haunt"                    ],
+                           "text": "Two captions for this image. Keep each under 25 words. No fluff.\n\n😇 Bes (toxic positivity overdose):\nGaslight yourself into seeing beauty in this trainwreck. Make it sound profound.\n\n😈 Anti-Bes (soul-crushing truth bomb):\nObliterate any hope. Be merciless. Make people question their life choices.\n\nRequirements:\n- Hit like a brick to the face\n- Zero mercy, maximum impact\n- Raw, unfiltered, devastating\n- Short enough to remember, brutal enough to haunt"                      }
+                    ],
                 }
             ]
             
