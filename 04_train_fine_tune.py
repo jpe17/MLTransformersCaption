@@ -12,14 +12,17 @@ def train_stable_caption_model():
     3. Better generation parameters during validation to avoid repetitive loops.
     """
     
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+
     # --- 1. Data and Model Setup ---
     print("Initializing model and data...")
     train, val = get_flickr_data()
     train_batches = train()
     val_batches = val()
     
-    encoder = VisionLanguageEncoder()
-    decoder = CaptionDecoder()
+    encoder = VisionLanguageEncoder().to(device)
+    decoder = CaptionDecoder().to(device)
     
     # --- 2. Stable Optimizer & Scheduler Setup ---
     # Combine trainable parameters
@@ -39,6 +42,9 @@ def train_stable_caption_model():
         num_training_steps=num_training_steps
     )
     
+    # Use AMP for performance
+    scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
+
     print("Starting STABLE image captioning training...")
     print(f"  - Learning Rate: {optimizer.defaults['lr']:.1e}")
     print(f"  - Warmup Steps: {num_warmup_steps}")
@@ -54,18 +60,18 @@ def train_stable_caption_model():
         # (The rest of the teacher-forcing logic is the same)
         batch_size = len(pil_images)
         with torch.no_grad():
-            clip_inputs = encoder.clip_processor(images=pil_images, return_tensors="pt")
+            clip_inputs = encoder.clip_processor(images=pil_images, return_tensors="pt").to(device)
             vision_outputs = encoder.clip_model.vision_model(**clip_inputs)
             image_patches = vision_outputs.last_hidden_state[:, 1:, :]
         
         image_embeddings = encoder.image_adapter(image_patches)
         num_patches = image_embeddings.shape[1]
         
-        image_ids = torch.zeros(batch_size, num_patches, dtype=torch.long)
+        image_ids = torch.zeros(batch_size, num_patches, dtype=torch.long, device=device)
         image_mod_embs = encoder.modality_embedding(image_ids)
         image_input = image_embeddings + image_mod_embs
         
-        tokenized = encoder.tokenizer(captions, padding=True, truncation=True, return_tensors="pt", add_special_tokens=True)
+        tokenized = encoder.tokenizer(captions, padding=True, truncation=True, return_tensors="pt", add_special_tokens=True).to(device)
         input_ids = tokenized['input_ids']
         
         input_tokens = input_ids[:, :-1]
@@ -78,11 +84,13 @@ def train_stable_caption_model():
         
         combined_input = torch.cat([image_input, text_input], dim=1)
         
-        logits, loss = decoder(combined_input, target_tokens, num_patches)
+        with torch.cuda.amp.autocast(enabled=(device == 'cuda')):
+            logits, loss = decoder(combined_input, target_tokens, num_patches)
         
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         scheduler.step()  # Update the learning rate
         
         if step % 10 == 0:
@@ -101,7 +109,7 @@ def train_stable_caption_model():
             
             # --- Image Processing ---
             first_image = [pil_images[0]]
-            clip_inputs = encoder.clip_processor(images=first_image, return_tensors="pt")
+            clip_inputs = encoder.clip_processor(images=first_image, return_tensors="pt").to(device)
             vision_outputs = encoder.clip_model.vision_model(**clip_inputs)
             image_patches = vision_outputs.last_hidden_state[:, 1:, :]
             image_embeddings = encoder.image_adapter(image_patches)
@@ -119,7 +127,8 @@ def train_stable_caption_model():
                 attention_mask = torch.ones(input_embeddings.shape[:2], device=input_embeddings.device)
                 
                 # Get logits from the decoder for the last token in the sequence
-                outputs = decoder.qwen_model(inputs_embeds=input_embeddings, attention_mask=attention_mask)
+                with torch.cuda.amp.autocast(enabled=(device == 'cuda')):
+                    outputs = decoder.qwen_model(inputs_embeds=input_embeddings, attention_mask=attention_mask)
                 logits = outputs.logits[:, -1, :]  # Shape: [1, vocab_size]
 
                 # --- Top-k Sampling to prevent repetition ---
@@ -141,7 +150,7 @@ def train_stable_caption_model():
                 # Get the embedding for the newly generated token
                 next_token_embedding = decoder.qwen_model.get_input_embeddings()(next_token_id)
                 # **CRITICAL**: Add the text modality embedding, just like in training
-                text_mod_embedding = encoder.modality_embedding(torch.ones_like(next_token_id))
+                text_mod_embedding = encoder.modality_embedding(torch.ones_like(next_token_id).to(device))
                 next_token_full_embedding = next_token_embedding + text_mod_embedding
                 
                 # Append the new token's full embedding to our input sequence
