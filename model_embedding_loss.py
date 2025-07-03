@@ -16,7 +16,7 @@ class VisionLanguageEncoder(nn.Module):
         self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B-Base")
         self.qwen_model = AutoModel.from_pretrained("Qwen/Qwen3-0.6B-Base")
         
-        # Load CLIP model and processor with safetensors handling
+        # Load CLIP model and processor - KEEP ON CPU TO SAVE GPU MEMORY
         try:
             self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32", use_safetensors=True)
         except:
@@ -24,6 +24,8 @@ class VisionLanguageEncoder(nn.Module):
             os.environ["TRANSFORMERS_OFFLINE"] = "0"
             self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32", trust_remote_code=True, torch_dtype=torch.float32)
         
+        # Keep CLIP on CPU to save GPU memory
+        self.clip_model = self.clip_model.cpu()
         self.clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)
         
         # Simple modality embeddings for Qwen compatibility
@@ -41,11 +43,14 @@ class VisionLanguageEncoder(nn.Module):
         # Create modality embedding layer (like positional embeddings in transformers)
         self.modality_embedding = torch.nn.Embedding(2, qwen_emb_dimension)  # 0=image, 1=text
     def forward(self, pil_images, captions):
-        # 1. Process images with CLIP to get patch embeddings
+        # 1. Process images with CLIP to get patch embeddings (ON CPU)
         with torch.no_grad():
-            clip_inputs = self.clip_processor(images=pil_images, return_tensors="pt").to(self.qwen_model.device)
+            clip_inputs = self.clip_processor(images=pil_images, return_tensors="pt")
             vision_outputs = self.clip_model.vision_model(**clip_inputs)
             image_patch_embeddings = vision_outputs.last_hidden_state[:, 1:, :]  # Exclude CLS token
+            
+            # Move to GPU only when needed
+            image_patch_embeddings = image_patch_embeddings.to(self.qwen_model.device)
 
         # 2. Adapt CLIP embeddings to Qwen's dimension
         image_patch_embeddings = self.image_adapter(image_patch_embeddings)
@@ -92,7 +97,7 @@ class CaptionDecoder(nn.Module):
         super().__init__()
         
         # Load Qwen3 base model - use AutoModelForCausalLM
-        self.qwen_model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B-Base", torch_dtype=torch.float16)
+        self.qwen_model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B-Base")
         self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B-Base")
         
         # Set pad token if not exists
@@ -196,17 +201,18 @@ class CaptionDecoder(nn.Module):
         # 1. Cosine similarity loss - encourages semantic alignment
         cosine_sim = F.cosine_similarity(predicted_embeddings, target_embeddings, dim=-1)
         cosine_loss = (1 - cosine_sim) * mask
-        cosine_loss = cosine_loss.sum() / (mask.sum() + 1e-8)  # Add epsilon for stability
+        cosine_loss = cosine_loss.sum() / mask.sum()
         
         # 2. MSE loss - encourages magnitude matching
         mse_loss = F.mse_loss(predicted_embeddings, target_embeddings, reduction='none').mean(dim=-1)
-        mse_loss = (mse_loss * mask).sum() / (mask.sum() + 1e-8)  # Add epsilon for stability
+        mse_loss = (mse_loss * mask).sum() / mask.sum()
         
-        # 3. Skip contrastive loss for FP16 stability
-        contrastive_loss = torch.tensor(0.0, device=predicted_embeddings.device)
+        # 3. Contrastive loss - encourages distinguishing between different tokens
+        # This helps prevent the model from collapsing to similar embeddings
+        contrastive_loss = self.contrastive_loss(predicted_embeddings, target_embeddings, mask)
         
         # Combine losses with weights
-        total_loss = 0.8 * cosine_loss + 0.2 * mse_loss  # Simplified weights
+        total_loss = 0.5 * cosine_loss + 0.3 * mse_loss + 0.2 * contrastive_loss
         
         return total_loss
 
