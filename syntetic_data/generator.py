@@ -68,36 +68,6 @@ for i, example in enumerate(dataset):
 
         if isinstance(image_data, str):
             image = Image.open(image_data).convert("RGB")
-        elif isinstance(image_data, torch.Tensor):
-            # If image_data is already a tensor, convert it to PIL Image
-            # Assuming C, H, W format, and values might be normalized (e.g., to [-1, 1] or [0, 1])
-            # We'll denormalize to 0-255 and convert to uint8.
-            # This is a common conversion, but may need adjustment if different normalization is used.
-            image_tensor_cpu = image_data.cpu().detach().float() # Ensure float type
-
-            # Normalize to [0, 1] range if not already, then scale to [0, 255]
-            # Handle potential different input tensor value ranges.
-            # A common range is [0, 1] or [-1, 1].
-            # If the tensor has values outside [0, 1] and contains negative numbers,
-            # it's likely normalized to [-1, 1] or similar.
-            if image_tensor_cpu.min() < 0 or image_tensor_cpu.max() > 1:
-                # If values are not in [0, 1] or [-1, 1], attempt min-max scaling to [0, 1]
-                min_val = image_tensor_cpu.min()
-                max_val = image_tensor_cpu.max()
-                if max_val != min_val: # Avoid division by zero
-                    image_tensor_normalized_0_1 = (image_tensor_cpu - min_val) / (max_val - min_val)
-                else:
-                    image_tensor_normalized_0_1 = torch.zeros_like(image_tensor_cpu) # All values are same
-            else:
-                image_tensor_normalized_0_1 = image_tensor_cpu # Already in [0, 1] or close enough
-
-            # Scale to [0, 255] and convert to uint8
-            image_tensor_255 = (image_tensor_normalized_0_1 * 255).clamp(0, 255).to(torch.uint8)
-
-            # Permute from C, H, W to H, W, C for PIL.Image.fromarray
-            image_np = image_tensor_255.permute(1, 2, 0).numpy()
-            image = Image.fromarray(image_np, 'RGB')
-
         elif hasattr(image_data, "convert"):
             # This covers PIL.Image objects directly from dataset
             image = image_data.convert("RGB")
@@ -111,6 +81,15 @@ for i, example in enumerate(dataset):
 
         print(f"Processing {image_name}...")
         inputs = processor(text=prompt, images=image, return_tensors="pt").to(device)
+
+        # DEBUG: Inspect inputs to verify tokenization and feature extraction
+        print(f"DEBUG: Inputs keys: {inputs.keys()}")
+        if 'input_ids' in inputs:
+            print(f"DEBUG: input_ids shape: {inputs['input_ids'].shape}")
+            print(f"DEBUG: input_ids content (first 20 tokens): {inputs['input_ids'][0, :20]}")
+        if 'pixel_values' in inputs:
+            print(f"DEBUG: pixel_values shape: {inputs['pixel_values'].shape}")
+
         if device.type == 'cuda':
             for k in inputs:
                 if torch.is_floating_point(inputs[k]):
