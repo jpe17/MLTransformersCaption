@@ -80,7 +80,20 @@ for i, example in enumerate(dataset):
             raise ValueError("Image could not be loaded or converted to PIL Image.")
 
         print(f"Processing {image_name}...")
-        inputs = processor(text=prompt, images=image, return_tensors="pt").to(device)
+
+        # Tokenize text
+        text_inputs = processor.tokenizer(text=prompt, return_tensors="pt")
+
+        # Process image
+        # Ensure image is passed as a list to the image_processor for correct batching
+        image_inputs = processor.image_processor(images=[image], return_tensors="pt")
+
+        # Combine inputs
+        inputs = {
+            "input_ids": text_inputs.input_ids.to(device),
+            "attention_mask": text_inputs.attention_mask.to(device),
+            "pixel_values": image_inputs.pixel_values.to(device),
+        }
 
         # DEBUG: Inspect inputs to verify tokenization and feature extraction
         print(f"DEBUG: Inputs keys: {inputs.keys()}")
