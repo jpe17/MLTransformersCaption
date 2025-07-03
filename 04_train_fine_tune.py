@@ -34,7 +34,7 @@ def train_stable_caption_model():
     optimizer = torch.optim.AdamW(trainable_params, lr=2e-6, weight_decay=0.01)
     
     # Add a learning rate scheduler with warmup
-    num_training_steps = 1000  # Increased from 50 to 500 for meaningful learning
+    num_training_steps = 5000  # Increased from 50 to 500 for meaningful learning
     num_warmup_steps = 50   # ~10% of total steps for warmup
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
@@ -89,6 +89,11 @@ def train_stable_caption_model():
         
         optimizer.zero_grad()
         scaler.scale(loss).backward()
+        
+        # Add gradient clipping
+        scaler.unscale_(optimizer) # Unscale before clipping
+        torch.nn.utils.clip_grad_norm_(trainable_params, 1.0)
+        
         scaler.step(optimizer)
         scaler.update()
         scheduler.step()  # Update the learning rate

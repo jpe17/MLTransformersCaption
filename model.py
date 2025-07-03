@@ -137,14 +137,12 @@ class CaptionDecoder(nn.Module):
         loss = None
         if target_tokens is not None and num_patches is not None:
             # Calculate loss only on text tokens (skip image patches)
-            text_logits = logits[:, num_patches:, :]  # [batch_size, text_seq_len, vocab_size]
+            # The logits for the text part start after the image patches
+            text_logits = logits[:, num_patches-1:-1, :]
             
             # Flatten for cross entropy loss
-            shift_logits = text_logits[..., :-1, :].contiguous()  # [batch_size, text_seq_len-1, vocab_size]
-            shift_labels = target_tokens[..., 1:].contiguous()    # [batch_size, text_seq_len-1]
-            
             loss_fct = torch.nn.CrossEntropyLoss()
-            loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+            loss = loss_fct(text_logits.reshape(-1, text_logits.size(-1)), target_tokens.reshape(-1))
         
         return logits, loss
 
