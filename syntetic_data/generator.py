@@ -73,19 +73,8 @@ for i, example in enumerate(dataset):
         else:
             raise ValueError("Unsupported image format")
 
-        # Preprocess image using processor (handles resizing, normalization, etc.)
-        # Some processors have .image_processor, others use .preprocess
-        if hasattr(processor, 'image_processor'):
-            image = processor.image_processor(image, return_tensors="pt")["pixel_values"][0]
-        elif hasattr(processor, 'preprocess'):
-            image = processor.preprocess(image, return_tensors="pt")["pixel_values"][0]
-        else:
-            # Fallback: use as is
-            pass
-
         print(f"Processing {image_name}...")
-        # Prepare inputs (ensure image is in a batch)
-        inputs = processor(text=prompt, images=image.unsqueeze(0) if image.dim() == 3 else image, return_tensors="pt").to(device)
+        inputs = processor(text=prompt, images=image, return_tensors="pt").to(device)
         if device.type == 'cuda':
             for k in inputs:
                 if torch.is_floating_point(inputs[k]):
