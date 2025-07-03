@@ -46,9 +46,11 @@ def get_flickr_data(max_samples=100000, val_split=0.2, batch_size=16):
     resize_transform = Resize((224, 224))
     
     # Batch generators
-    def batches(data):
-        for i in range(0, len(data), batch_size):
-            batch = data[i:i+batch_size]
+    def batches(data_list, shuffle=False):
+        if shuffle:
+            random.shuffle(data_list)
+        for i in range(0, len(data_list), batch_size):
+            batch = data_list[i:i+batch_size]
             # Load and resize PIL images once
             pil_images = []
             for item in batch:
@@ -61,4 +63,4 @@ def get_flickr_data(max_samples=100000, val_split=0.2, batch_size=16):
             captions = [item['caption'] for item in batch]
             yield pil_images, captions
     
-    return lambda: batches(train_data), lambda: batches(val_data)
+    return lambda: batches(train_data, shuffle=True), lambda: batches(val_data)
