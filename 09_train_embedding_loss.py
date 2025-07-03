@@ -49,7 +49,7 @@ def train_with_embedding_loss():
     scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
 
     # --- 3. Training Loop (5 Epochs) ---
-    num_epochs = 5
+    num_epochs = 1
     print(f"\nStarting training for {num_epochs} epochs with Embedding-Based Loss...")
     print("📊 Loss Components:")
     print("  - 50% Cosine Similarity (semantic alignment)")
