@@ -96,6 +96,6 @@ class CaptionDecoder(CaptionDecoderBase):
             
             # Direct alignment between logits and target tokens
             loss_fct = torch.nn.CrossEntropyLoss()
-            loss = loss_fct(text_logits.view(-1, text_logits.size(-1)), target_tokens.view(-1))
+            loss = loss_fct(text_logits.reshape(-1, text_logits.size(-1)), target_tokens.reshape(-1))
             
         return logits, loss, num_patches 
