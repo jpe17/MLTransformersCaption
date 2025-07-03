@@ -50,7 +50,7 @@ class VisionLanguageEncoder(nn.Module):
         # 2. Adapt CLIP embeddings to Qwen's dimension
         image_patch_embeddings = self.image_adapter(image_patch_embeddings)
 
-        # 3. Process text captions to get input and target tokens
+        # 3. Process text captions to ge input and target tokens
         tokenized = self.tokenizer(captions, padding=True, truncation=True, return_tensors="pt", add_special_tokens=False).to(self.qwen_model.device)
         tokens = tokenized['input_ids']
         

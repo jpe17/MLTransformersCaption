@@ -45,8 +45,8 @@ def train_with_embedding_loss():
 
     optimizer = torch.optim.AdamW(trainable_params, lr=1e-4, weight_decay=0.01)  # Slightly higher LR for embedding training
     
-    # Use AMP for performance
-    scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
+    # Use AMP for performance - but disable scaler for FP16 model
+    scaler = torch.cuda.amp.GradScaler(enabled=False)
 
     # --- 3. Training Loop (5 Epochs) ---
     num_epochs = 1
@@ -82,14 +82,12 @@ def train_with_embedding_loss():
                 continue
 
             optimizer.zero_grad()
-            scaler.scale(loss).backward()
+            loss.backward()
             
             # Gradient clipping
-            scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(trainable_params, 1.0)
             
-            scaler.step(optimizer)
-            scaler.update()
+            optimizer.step()
             
             epoch_loss += loss.item()
             step_count += 1
