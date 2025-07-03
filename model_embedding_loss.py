@@ -4,6 +4,10 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModel, CLIPProcessor, CLIPModel, AutoModelForCausalLM
 import os
 
+# Fix for transformers version compatibility
+if not hasattr(torch.compiler, 'is_compiling'):
+    torch.compiler.is_compiling = lambda: False
+
 class VisionLanguageEncoder(nn.Module):
     def __init__(self):
         super().__init__()
