@@ -8,6 +8,9 @@ import torch
 import os
 import json
 import glob
+import sys
+sys.path.append('..')  # Add parent directory to path
+from loader import get_flickr_data
 
 # ------------------------
 # 🔧 Configurable Settings
@@ -29,33 +32,54 @@ except Exception as e:
     print(f"❌ Error loading model: {e}")
     exit(1)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f"🖥️  Using device: {device}")
+# Check for available devices in order of preference
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+    print("🖥️  Using device: CUDA GPU")
+elif torch.backends.mps.is_available():
+    device = torch.device('mps')
+    print("🖥️  Using device: MPS (Apple GPU)")
+else:
+    device = torch.device('cpu')
+    print("🖥️  Using device: CPU")
 
 model = model.to(device)
+# Only use half precision on CUDA, not on MPS (can cause issues)
 if device.type == 'cuda':
     model = model.half()
 
 # ------------------------
-# 📦 Find local images
+# 📦 Load Flickr8k images
 # ------------------------
-# Find all .jpg files in the images directory
-image_extensions = ['*.jpg', '*.jpeg', '*.JPG', '*.JPEG']
-image_files = []
-
-for ext in image_extensions:
-    image_files.extend(glob.glob(os.path.join(images_dir, ext)))
-
-if not image_files:
-    print(f"❌ No images found in {images_dir}")
-    print("💡 Please make sure there are .jpg files in the data/images folder")
+print("📂 Loading Flickr8k dataset...")
+try:
+    # Get the data loaders (this will download if needed)
+    train_loader_fn, val_loader_fn = get_flickr_data(max_samples=100000, batch_size=1)
+    
+    # Collect all images from both train and val sets
+    print("🔄 Collecting images from dataset...")
+    all_images = []
+    
+    # Get training images
+    for pil_images, captions in train_loader_fn():
+        for img, caption in zip(pil_images, captions):
+            all_images.append((img, caption))
+    
+    # Get validation images
+    for pil_images, captions in val_loader_fn():
+        for img, caption in zip(pil_images, captions):
+            all_images.append((img, caption))
+    
+    # Limit for testing if needed
+    if max_images > 0:
+        all_images = all_images[:max_images]
+    
+    print(f"📷 Found {len(all_images)} images to process")
+    
+except Exception as e:
+    print(f"❌ Error loading Flickr8k dataset: {e}")
+    print("💡 Make sure you have internet connection for initial download")
     exit(1)
-
-# Limit for testing if needed
-if max_images > 0:
-    image_files = image_files[:max_images]
-
-print(f"📷 Found {len(image_files)} images to process")
 
 # ------------------------
 # 📝 Define prompt - Fixed format for Qwen2.5-VL
@@ -72,21 +96,54 @@ Be short, expressive, and funny when needed.
 
 results = []
 
+# Load existing results if the file exists
+if os.path.exists(output_file):
+    try:
+        with open(output_file, 'r', encoding='utf-8') as f:
+            existing_results = json.load(f)
+            # Get list of already processed images by index (since we don't have filenames)
+            processed_indices = {result.get('image_index', -1) for result in existing_results}
+            results = existing_results
+            print(f"📂 Found existing results: {len(results)} captions already generated")
+            print(f"🔄 Will skip {len(processed_indices)} already processed images")
+    except Exception as e:
+        print(f"⚠️ Could not load existing results: {e}")
+        print("🔄 Starting fresh...")
+        processed_indices = set()
+else:
+    processed_indices = set()
+
+def save_results_incremental():
+    """Save results to file with backup"""
+    try:
+        # Create backup if file exists
+        if os.path.exists(output_file):
+            backup_file = output_file.replace('.json', '_backup.json')
+            os.rename(output_file, backup_file)
+        
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=4, ensure_ascii=False)
+        
+        print(f"💾 Saved {len(results)} captions to {output_file}")
+        return True
+    except Exception as e:
+        print(f"❌ Error saving results: {e}")
+        return False
+
 # ------------------------
 # 🔁 Process images
 # ------------------------
-for i, image_path in enumerate(image_files):
+for i, (image, original_caption) in enumerate(all_images):
     try:
-        image_name = os.path.basename(image_path)
-        print(f"\n🔄 Processing {image_name} ({i+1}/{len(image_files)})...")
-        
-        # Load image
-        try:
-            image = Image.open(image_path).convert("RGB")
-            print(f"✅ Image loaded: {image.size}")
-        except Exception as e:
-            print(f"❌ Error loading image {image_name}: {e}")
+        # Skip if already processed
+        if i in processed_indices:
+            print(f"⏭️  Skipping image {i} (already processed)")
             continue
+            
+        print(f"\n🔄 Processing image {i+1}/{len(all_images)}...")
+        print(f"📝 Original caption: {original_caption[:60]}{'...' if len(original_caption) > 60 else ''}")
+        print(f"✅ Image loaded: {image.size}")
         
         # Process with model - Fixed processor call
         try:
@@ -117,6 +174,7 @@ for i, image_path in enumerate(image_files):
             )
             inputs = inputs.to(device)
             
+            # Only use half precision on CUDA, not on MPS
             if device.type == 'cuda':
                 for k in inputs:
                     if torch.is_floating_point(inputs[k]):
@@ -136,9 +194,11 @@ for i, image_path in enumerate(image_files):
             
         except RuntimeError as e:
             if 'out of memory' in str(e).lower():
-                print(f"⚠️ CUDA OOM for {image_name}, skipping...")
+                print(f"⚠️ GPU OOM for image {i}, skipping...")
                 if device.type == 'cuda':
                     torch.cuda.empty_cache()
+                elif device.type == 'mps':
+                    torch.mps.empty_cache()
                 continue
             else:
                 raise
@@ -224,7 +284,8 @@ for i, image_path in enumerate(image_files):
         if bes_caption:
             print(f"😇 Bes: {bes_caption}")
             results.append({
-                "image": image_name,
+                "image_index": i,
+                "original_caption": original_caption,
                 "caption": bes_caption,
                 "type": "Bes"
             })
@@ -232,7 +293,8 @@ for i, image_path in enumerate(image_files):
         if anti_bes_caption:
             print(f"😈 Anti-Bes: {anti_bes_caption}")
             results.append({
-                "image": image_name,
+                "image_index": i,
+                "original_caption": original_caption,
                 "caption": anti_bes_caption,
                 "type": "Anti-Bes"
             })
@@ -251,37 +313,53 @@ for i, image_path in enumerate(image_files):
         del inputs, generated_ids
         if device.type == 'cuda':
             torch.cuda.empty_cache()
+        elif device.type == 'mps':
+            torch.mps.empty_cache()
+        
+        # Save every 50 images or if we have new results
+        if (i + 1) % 50 == 0 or (len(results) > 0 and len(results) % 50 == 0):
+            print(f"\n💾 Checkpoint: Saving results after {i+1} images processed...")
+            save_results_incremental()
+            
+            # Show current progress
+            bes_count = sum(1 for r in results if r['type'] == 'Bes')
+            anti_bes_count = sum(1 for r in results if r['type'] == 'Anti-Bes')
+            print(f"📊 Progress: {len(results)} total captions ({bes_count} Bes, {anti_bes_count} Anti-Bes)")
+            print(f"🔄 Continuing with remaining images...")
             
     except Exception as e:
-        print(f"❌ Error processing {image_name}: {e}")
+        print(f"❌ Error processing image {i}: {e}")
         if device.type == 'cuda':
             torch.cuda.empty_cache()
+        elif device.type == 'mps':
+            torch.mps.empty_cache()
         continue
 
 # ------------------------
-# 💾 Save results
+# 💾 Final save and summary
 # ------------------------
-try:
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(results, f, indent=4, ensure_ascii=False)
+print(f"\n🏁 Processing complete! Final save...")
+if save_results_incremental():
+    print(f"✅ Final results saved to {output_file}")
     
-    print(f"\n✅ Done! Saved {len(results)} captions to {output_file}")
-    print(f"📊 Processed {len(image_files)} images, generated {len(results)} captions")
+    # Show final statistics
+    total_processed = len([idx for idx in range(len(all_images)) if idx not in processed_indices or any(r.get('image_index', -1) == idx for r in results)])
+    print(f"📊 Final Summary:")
+    print(f"  • Total images found: {len(all_images)}")
+    print(f"  • Images processed: {total_processed}")
+    print(f"  • Total captions generated: {len(results)}")
     
     if len(results) > 0:
-        # Show some statistics
+        # Show detailed statistics
         bes_count = sum(1 for r in results if r['type'] == 'Bes')
         anti_bes_count = sum(1 for r in results if r['type'] == 'Anti-Bes')
-        print(f"📈 Caption breakdown: {bes_count} Bes, {anti_bes_count} Anti-Bes")
+        print(f"  • Caption breakdown: {bes_count} Bes, {anti_bes_count} Anti-Bes")
         
-        # Show a sample
-        print("\n🔍 Sample captions:")
-        for i, result in enumerate(results[:4]):  # Show first 4
+        # Show a sample of recent captions
+        print(f"\n🔍 Sample captions (last 4):")
+        for result in results[-4:]:  # Show last 4
             print(f"  {result['type']}: {result['caption'][:60]}{'...' if len(result['caption']) > 60 else ''}")
     else:
         print("⚠️ No captions were generated. Check the model output format.")
-        
-except Exception as e:
-    print(f"❌ Error saving results: {e}")
-    print("💡 Results were not saved to file") 
+else:
+    print("❌ Final save failed - check the backup files") 

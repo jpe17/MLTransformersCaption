@@ -18,8 +18,16 @@ def train_self_attention_only():
     6. Improved Validation: Uses proper autoregressive generation with top-k sampling
     """
     
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}")
+    # Check for available devices in order of preference
+    if torch.cuda.is_available():
+        device = "cuda"
+        print("Using device: CUDA GPU")
+    elif torch.backends.mps.is_available():
+        device = "mps"
+        print("Using device: MPS (Apple GPU)")
+    else:
+        device = "cpu"
+        print("Using device: CPU")
 
     # --- 1. Data and Model Setup ---
     print("Initializing model and data...")
@@ -40,6 +48,7 @@ def train_self_attention_only():
     optimizer = torch.optim.AdamW(trainable_params, lr=2e-5, weight_decay=0.01)
     
     # Use AMP for performance (same as explained model)
+    # Note: AMP works on CUDA, limited support on MPS
     scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
 
     # --- 3. Training Loop (Epoch-based like explained model) ---

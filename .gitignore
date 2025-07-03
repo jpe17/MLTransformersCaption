@@ -4,3 +4,5 @@ syntetic_data/images
 local_model_dir
 wandb
 syntetic_data/captions.json
+data/images
+saved_models

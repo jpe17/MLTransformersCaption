@@ -19,3 +19,10 @@ config: {'_wandb': {}}
 2025-07-03 14:35:01,198 INFO    MainThread:42615 [wandb_run.py:_redirect():2375] Wrapping output streams.
 2025-07-03 14:35:01,198 INFO    MainThread:42615 [wandb_run.py:_redirect():2398] Redirects installed.
 2025-07-03 14:35:01,200 INFO    MainThread:42615 [wandb_init.py:init():1075] run started, returning control to user process
+2025-07-04 00:03:26,600 INFO    MainThread:42615 [wandb_run.py:_finish():2224] finishing run joaopaesteves99-opensc/image-captioning/9nmr4jfo
+2025-07-04 00:03:26,610 INFO    MainThread:42615 [wandb_run.py:_atexit_cleanup():2423] got exitcode: 0
+2025-07-04 00:03:26,611 INFO    MainThread:42615 [wandb_run.py:_restore():2405] restore
+2025-07-04 00:03:26,613 INFO    MainThread:42615 [wandb_run.py:_restore():2411] restore done
+2025-07-04 00:03:27,743 INFO    MainThread:42615 [wandb_run.py:_footer_history_summary_info():3903] rendering history
+2025-07-04 00:03:27,747 INFO    MainThread:42615 [wandb_run.py:_footer_history_summary_info():3935] rendering summary
+2025-07-04 00:03:27,753 INFO    MainThread:42615 [wandb_run.py:_footer_sync_info():3864] logging synced files

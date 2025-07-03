@@ -34,3 +34,13 @@
 {"time":"2025-07-03T23:15:15.354073+01:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": dial tcp: lookup api.wandb.ai: no such host"}
 {"time":"2025-07-03T23:15:34.872245+01:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/joaopaesteves99-opensc/image-captioning/9nmr4jfo/file_stream\": dial tcp: lookup api.wandb.ai: no such host"}
 {"time":"2025-07-03T23:15:55.222284+01:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": dial tcp: lookup api.wandb.ai: no such host"}
+{"time":"2025-07-03T23:31:41.299866+01:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/joaopaesteves99-opensc/image-captioning/9nmr4jfo/file_stream\": read tcp [2a00:23ee:19a8:50d7:706e:6eab:e68b:2622]:57615->[64:ff9b::23ba:e431]:443: read: connection reset by peer"}
+{"time":"2025-07-03T23:52:21.053014+01:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/joaopaesteves99-opensc/image-captioning/9nmr4jfo/file_stream\": unexpected EOF"}
+{"time":"2025-07-03T23:52:51.045869+01:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/joaopaesteves99-opensc/image-captioning/9nmr4jfo/file_stream\": unexpected EOF"}
+{"time":"2025-07-04T00:03:27.416844+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-07-04T00:03:27.651097+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading history steps 40464-40464, summary, console lines 2107-2112","runtime_seconds":0.234164667}],"total_operations":1}}
+{"time":"2025-07-04T00:03:27.756161+01:00","level":"INFO","msg":"stream: closing","id":"9nmr4jfo"}
+{"time":"2025-07-04T00:03:27.756187+01:00","level":"INFO","msg":"handler: closed","stream_id":"9nmr4jfo"}
+{"time":"2025-07-04T00:03:27.75621+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"9nmr4jfo"}
+{"time":"2025-07-04T00:03:27.756229+01:00","level":"INFO","msg":"sender: closed","stream_id":"9nmr4jfo"}
+{"time":"2025-07-04T00:03:27.756293+01:00","level":"INFO","msg":"stream: closed","id":"9nmr4jfo"}
