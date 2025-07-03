@@ -4,3 +4,7 @@ Pillow>=8.0.0
 tqdm>=4.60.0 
 matplotlib>=3.5.0
 torch
+transformers
+datasets
+accelerate
+wandb

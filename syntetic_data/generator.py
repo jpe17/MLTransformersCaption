@@ -19,8 +19,8 @@ preview_count = 10     # Number of samples to process in preview mode
 # ------------------------
 # 🚀 Load model & processor
 # ------------------------
-model = AutoModelForVision2Seq.from_pretrained("local_model_dir")
-processor = AutoProcessor.from_pretrained("local_model_dir")
+model = AutoModelForVision2Seq.from_pretrained(model_id, trust_remote_code=True, torch_dtype=torch.float16)
+processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True, torch_dtype=torch.float16)
 
 # ------------------------
 # 📦 Load dataset
