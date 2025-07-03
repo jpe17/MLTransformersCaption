@@ -39,15 +39,23 @@ if device.type == 'cuda':
 # ------------------------
 # 📦 Find local images
 # ------------------------
-# Use only a single test image
-image_files = ["syntetic_data/test_image.jpg"]
+# Find all .jpg files in the images directory
+image_extensions = ['*.jpg', '*.jpeg', '*.JPG', '*.JPEG']
+image_files = []
 
-if not image_files or not os.path.exists(image_files[0]):
-    print(f"❌ Test image not found: {image_files[0]}")
-    print("💡 Please make sure the test image exists in the data/images folder")
+for ext in image_extensions:
+    image_files.extend(glob.glob(os.path.join(images_dir, ext)))
+
+if not image_files:
+    print(f"❌ No images found in {images_dir}")
+    print("💡 Please make sure there are .jpg files in the data/images folder")
     exit(1)
 
-print(f"📷 Using test image: {image_files[0]}")
+# Limit for testing if needed
+if max_images > 0:
+    image_files = image_files[:max_images]
+
+print(f"📷 Found {len(image_files)} images to process")
 
 # ------------------------
 # 📝 Define prompt - Fixed format for Qwen2.5-VL
@@ -93,8 +101,7 @@ for i, image_path in enumerate(image_files):
                         },
                         {
                             "type": "text", 
-                            "text": "Give me two captions for this image:\n\n1. 😇 Bes (very supportive, encouraging):\n2. 😈 Anti-Bes (extremely sarcastic, roasty, discouraging):\n\nBe short, expressive, and funny when needed."
-                        }
+                            "text": "Give me two captions for this image:\n\n1. 😇 Bes (delusional optimism — tell it this is art, beauty, and a sign of hope even if it's falling apart):\n2. 😈 Anti-Bes (cold-blooded roast — nihilistic, sarcastic, the kind of burn that echoes in the void):\n\nBe brutal, absolutely roasting.\nDon’t hold back — be witty, cruel, poetic, or existential.\nMake it beautiful or horrifying — just make it unforgettable."                      }
                     ],
                 }
             ]
@@ -135,11 +142,12 @@ for i, image_path in enumerate(image_files):
             else:
                 raise
         
-        # Parse captions
+        # Parse captions - improved parsing logic
         bes_caption = ""
         anti_bes_caption = ""
         lines = generated_text.split('\n')
         
+        # First try to find the specific format we requested
         for line in lines:
             line_lower = line.lower()
             if 'bes (' in line_lower and ':' in line:
@@ -150,6 +158,28 @@ for i, image_path in enumerate(image_files):
                 bes_caption = line.split(':', 1)[1].strip()
             elif 'anti-bes:' in line_lower:
                 anti_bes_caption = line.split(':', 1)[1].strip()
+        
+        # If that didn't work, try to parse numbered captions
+        if not bes_caption and not anti_bes_caption:
+            print("🔄 Trying numbered caption parsing...")
+            caption_lines = []
+            for line in lines:
+                line = line.strip()
+                if line.startswith('1.') or line.startswith('2.'):
+                    # Remove the number and extract the caption
+                    caption = line[2:].strip()
+                    # Remove quotes if present
+                    if caption.startswith('"') and caption.endswith('"'):
+                        caption = caption[1:-1]
+                    caption_lines.append(caption)
+            
+            if len(caption_lines) >= 2:
+                bes_caption = caption_lines[0]
+                anti_bes_caption = caption_lines[1]
+                print(f"✅ Extracted numbered captions: {len(caption_lines)} found")
+            elif len(caption_lines) == 1:
+                bes_caption = caption_lines[0]
+                print("⚠️ Only one caption found, using as Bes caption")
         
         # Store results
         if bes_caption:
@@ -186,12 +216,27 @@ for i, image_path in enumerate(image_files):
 # ------------------------
 # 💾 Save results
 # ------------------------
-os.makedirs(os.path.dirname(output_file), exist_ok=True)
-with open(output_file, 'w') as f:
-    json.dump(results, f, indent=4)
-
-print(f"\n✅ Done! Saved {len(results)} captions to {output_file}")
-print(f"📊 Processed {len(image_files)} images, generated {len(results)} captions")
-
-if len(results) == 0:
-    print("⚠️ No captions were generated. Check the model output format.") 
+try:
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(results, f, indent=4, ensure_ascii=False)
+    
+    print(f"\n✅ Done! Saved {len(results)} captions to {output_file}")
+    print(f"📊 Processed {len(image_files)} images, generated {len(results)} captions")
+    
+    if len(results) > 0:
+        # Show some statistics
+        bes_count = sum(1 for r in results if r['type'] == 'Bes')
+        anti_bes_count = sum(1 for r in results if r['type'] == 'Anti-Bes')
+        print(f"📈 Caption breakdown: {bes_count} Bes, {anti_bes_count} Anti-Bes")
+        
+        # Show a sample
+        print("\n🔍 Sample captions:")
+        for i, result in enumerate(results[:4]):  # Show first 4
+            print(f"  {result['type']}: {result['caption'][:60]}{'...' if len(result['caption']) > 60 else ''}")
+    else:
+        print("⚠️ No captions were generated. Check the model output format.")
+        
+except Exception as e:
+    print(f"❌ Error saving results: {e}")
+    print("💡 Results were not saved to file") 
