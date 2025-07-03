@@ -1,12 +1,41 @@
-from model import VisionLanguageEncoder as VisionLanguageEncoderBase, CaptionDecoder as CaptionDecoderBase
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModel, CLIPProcessor, CLIPModel, AutoModelForCausalLM
+import os
 
-class VisionLanguageEncoder(VisionLanguageEncoderBase):
-    """
-    Same as the base encoder but returns separate components for the new embedding-based loss.
-    """
+class VisionLanguageEncoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+        # Load the Qwen tokenizer and model
+        self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B-Base")
+        self.qwen_model = AutoModel.from_pretrained("Qwen/Qwen3-0.6B-Base")
+        
+        # Load CLIP model and processor with safetensors handling
+        try:
+            self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32", use_safetensors=True)
+        except:
+            # Fallback: Force PyTorch to use a different loading method
+            os.environ["TRANSFORMERS_OFFLINE"] = "0"
+            self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32", trust_remote_code=True, torch_dtype=torch.float32)
+        
+        self.clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)
+        
+        # Simple modality embeddings for Qwen compatibility
+        qwen_emb_dimension = self.qwen_model.config.hidden_size
+        
+        # Better alignment: make CLIP embeddings more similar to Qwen text embeddings
+        self.image_adapter = torch.nn.Sequential(
+            torch.nn.Linear(768, qwen_emb_dimension),
+            torch.nn.LayerNorm(qwen_emb_dimension),
+            torch.nn.GELU(),
+            torch.nn.Linear(qwen_emb_dimension, qwen_emb_dimension),
+            torch.nn.LayerNorm(qwen_emb_dimension)
+        ) 
+        
+        # Create modality embedding layer (like positional embeddings in transformers)
+        self.modality_embedding = torch.nn.Embedding(2, qwen_emb_dimension)  # 0=image, 1=text
     def forward(self, pil_images, captions):
         # 1. Process images with CLIP to get patch embeddings
         with torch.no_grad():
@@ -47,7 +76,7 @@ class VisionLanguageEncoder(VisionLanguageEncoderBase):
 
         return final_image_embeddings, final_text_embeddings, target_padded, target_embeddings
 
-class CaptionDecoder(CaptionDecoderBase):
+class CaptionDecoder(nn.Module):
     """
     Enhanced decoder that uses embedding-based loss instead of cross-entropy.
     
@@ -58,17 +87,42 @@ class CaptionDecoder(CaptionDecoderBase):
     def __init__(self):
         super().__init__()
         
-        # Add components for embedding-based loss
-        self.embedding_projection = nn.Linear(
-            self.qwen_model.config.hidden_size, 
-            self.qwen_model.config.hidden_size
+        # Load Qwen3 base model - use AutoModelForCausalLM
+        self.qwen_model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B-Base")
+        self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B-Base")
+        
+        # Set pad token if not exists
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        
+        # Freeze most of Qwen, but unfreeze last 2 layers for adaptation
+        for param in self.qwen_model.parameters():
+            param.requires_grad = False
+        
+        # Unfreeze last 2 transformer layers
+        if hasattr(self.qwen_model.model, 'layers'):
+            for layer in self.qwen_model.model.layers[-2:]:
+                for param in layer.parameters():
+                    param.requires_grad = True
+        
+        # Get model dimensions
+        hidden_size = self.qwen_model.config.hidden_size
+        
+        # Cross-attention to let text attend to image patches
+        self.vision_cross_attention = torch.nn.MultiheadAttention(
+            embed_dim=hidden_size,
+            num_heads=8,
+            batch_first=True
         )
+        
+        # Add components for embedding-based loss
+        self.embedding_projection = nn.Linear(hidden_size, hidden_size)
         
         # Temperature parameter for contrastive learning
         self.temperature = nn.Parameter(torch.tensor(0.07))
         
         # Layer norm for stability
-        self.embedding_norm = nn.LayerNorm(self.qwen_model.config.hidden_size)
+        self.embedding_norm = nn.LayerNorm(hidden_size)
 
     def forward(self, image_embeddings, text_embeddings, target_tokens=None, target_embeddings=None):
         # image_embeddings: [batch_size, num_patches, hidden_size]
