@@ -1,4 +1,4 @@
-from model_no_freezing import VisionLanguageEncoder, CaptionDecoder
+from model_unfreezing import VisionLanguageEncoder, CaptionDecoder
 from loader import get_flickr_data
 import torch
 from transformers import get_linear_schedule_with_warmup
