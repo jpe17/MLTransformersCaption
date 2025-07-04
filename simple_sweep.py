@@ -12,7 +12,7 @@ sweep_config = {
     'parameters': {
         'num_epochs': {'value': 2},
         'optimizer': {'values': ['adamw', 'adam']},
-        'learning_rate': {'min': 1e-5, 'max': 5e-5, 'distribution': 'log_uniform_values'},  # Fixed: use log_uniform_values
+        'learning_rate': {'min': 1e-5, 'max': 5e-5, 'distribution': 'log_uniform'},  # Fixed: use log_uniform
         'weight_decay': {'min': 0.01, 'max': 0.05, 'distribution': 'uniform'},  # More conservative range
         'beta1': {'min': 0.9, 'max': 0.95, 'distribution': 'uniform'},  # Narrower range
         'beta2': {'min': 0.995, 'max': 0.999, 'distribution': 'uniform'},  # Narrower range
@@ -20,8 +20,8 @@ sweep_config = {
         'scheduler': {'values': ['cosine', 'linear', 'constant']},
         'grad_clip_norm': {'min': 0.5, 'max': 1.0, 'distribution': 'uniform'},  # More conservative clipping
         'top_k': {'min': 20, 'max': 100, 'distribution': 'int_uniform'},
-        'temperature': {'min': 0.8, 'max': 1.2, 'distribution': 'uniform'} ,
-        'batch_size': {'value': [8, 16, 32, 64]}
+        'temperature': {'min': 0.8, 'max': 1.2, 'distribution': 'uniform'},
+        'batch_size': {'values': [8, 16, 32, 64]}  # Fixed: use 'values' not 'value'
     }
 }
 
