@@ -118,10 +118,17 @@ class ImageCaptioner:
         """Generate a caption for the given image."""
         # Load and preprocess image
         image = self.load_image(image_path)
-        
+        return self._generate_caption_from_pil(image, max_length)
+    
+    def generate_caption_from_pil(self, pil_image, max_length=30):
+        """Generate a caption for a PIL Image object."""
+        return self._generate_caption_from_pil(pil_image, max_length)
+    
+    def _generate_caption_from_pil(self, pil_image, max_length=30):
+        """Internal method to generate caption from PIL Image."""
         with torch.no_grad():
             # Get image embeddings
-            image_embeddings, _, _ = self.encoder([image], ["dummy"])
+            image_embeddings, _, _ = self.encoder([pil_image], ["dummy"])
             
             # Start with SOS token
             sos_id = self.decoder.tokenizer.bos_token_id
