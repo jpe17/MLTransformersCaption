@@ -11,13 +11,19 @@ from pathlib import Path
 from model_explained import VisionLanguageEncoder, CaptionDecoder
 
 class ImageCaptioner:
-    def __init__(self, model_path="saved_models/explained/explained_20_epochs.pth"):
+    def __init__(self, model_path=None):
         """Initialize the image captioner with a trained model."""
         self.device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
         print(f"Using device: {self.device}")
         
+        # If no model path provided, try to find the best model from sweep runs
+        if model_path is None:
+            model_path = self.find_best_model()
+            if model_path is None:
+                raise ValueError("No trained models found. Please provide a model_path or train a model first.")
+        
         # Load the model
-        print("Loading model...")
+        print(f"Loading model from: {model_path}")
         self.encoder = VisionLanguageEncoder().to(self.device)
         self.decoder = CaptionDecoder().to(self.device)
         
@@ -26,11 +32,81 @@ class ImageCaptioner:
         self.encoder.load_state_dict(checkpoint['encoder_state_dict'])
         self.decoder.load_state_dict(checkpoint['decoder_state_dict'])
         
+        # Print model info if available
+        if 'config' in checkpoint:
+            config = checkpoint['config']
+            print(f"Model config: {config}")
+        if 'final_train_loss' in checkpoint:
+            print(f"Final training loss: {checkpoint['final_train_loss']:.4f}")
+        
         # Set to evaluation mode
         self.encoder.eval()
         self.decoder.eval()
         
         print("Model loaded successfully!")
+    
+    def find_best_model(self):
+        """Find the best model from sweep runs based on lowest training loss."""
+        sweep_dir = Path("saved_models/sweep_runs")
+        if not sweep_dir.exists():
+            return None
+        
+        best_model = None
+        best_loss = float('inf')
+        
+        for model_file in sweep_dir.glob("*.pth"):
+            try:
+                checkpoint = torch.load(model_file, map_location='cpu')
+                if 'final_train_loss' in checkpoint:
+                    loss = checkpoint['final_train_loss']
+                    if loss < best_loss:
+                        best_loss = loss
+                        best_model = str(model_file)
+            except Exception as e:
+                print(f"Warning: Could not load {model_file}: {e}")
+        
+        if best_model:
+            print(f"Found best model: {best_model} (loss: {best_loss:.4f})")
+        
+        return best_model
+    
+    @staticmethod
+    def list_available_models():
+        """List all available models from sweep runs."""
+        sweep_dir = Path("saved_models/sweep_runs")
+        if not sweep_dir.exists():
+            print("No sweep models directory found.")
+            return []
+        
+        models = []
+        print("\nAvailable models from sweep runs:")
+        print("-" * 80)
+        
+        for model_file in sweep_dir.glob("*.pth"):
+            try:
+                checkpoint = torch.load(model_file, map_location='cpu')
+                config = checkpoint.get('config', {})
+                loss = checkpoint.get('final_train_loss', 'N/A')
+                run_id = checkpoint.get('wandb_run_id', 'N/A')
+                
+                print(f"File: {model_file.name}")
+                print(f"  Run ID: {run_id}")
+                print(f"  Loss: {loss}")
+                print(f"  Optimizer: {config.get('optimizer', 'N/A')}")
+                print(f"  Learning Rate: {config.get('learning_rate', 'N/A')}")
+                print(f"  Scheduler: {config.get('scheduler', 'N/A')}")
+                print("-" * 40)
+                
+                models.append({
+                    'path': str(model_file),
+                    'loss': loss,
+                    'config': config,
+                    'run_id': run_id
+                })
+            except Exception as e:
+                print(f"Warning: Could not load {model_file}: {e}")
+        
+        return models
     
     def generate_caption(self, image_path, max_length=30):
         """Generate a caption for the given image."""
@@ -94,12 +170,22 @@ class ImageCaptioner:
 
 def main():
     """Main function for command line usage."""
-    if len(sys.argv) != 2:
-        print("Usage: python inference.py <path_to_image>")
-        print("Example: python inference.py data/images/sample.jpg")
+    if len(sys.argv) < 2:
+        print("Usage: python inference.py <path_to_image> [model_path]")
+        print("       python inference.py --list-models")
+        print("Examples:")
+        print("  python inference.py data/images/sample.jpg")
+        print("  python inference.py data/images/sample.jpg saved_models/sweep_runs/model_sweep_abc123.pth")
+        print("  python inference.py --list-models")
         sys.exit(1)
     
+    # Handle list models command
+    if sys.argv[1] == "--list-models":
+        ImageCaptioner.list_available_models()
+        sys.exit(0)
+    
     image_path = sys.argv[1]
+    model_path = sys.argv[2] if len(sys.argv) > 2 else None
     
     # Check if image exists
     if not Path(image_path).exists():
@@ -108,7 +194,7 @@ def main():
     
     # Initialize captioner and generate caption
     try:
-        captioner = ImageCaptioner()
+        captioner = ImageCaptioner(model_path=model_path)
         caption = captioner.generate_caption(image_path)
         
         print(f"\nImage: {image_path}")

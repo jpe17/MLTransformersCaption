@@ -242,6 +242,52 @@ def train_with_cross_attention():
     })
     
     print(f"\nFinal average training loss: {avg_train_loss:.4f}")
+    
+    # --- 5. Save the trained model ---
+    print("Saving model...")
+    
+    # Create save directory if it doesn't exist
+    save_dir = "saved_models/sweep_runs"
+    os.makedirs(save_dir, exist_ok=True)
+    
+    # Create unique filename using wandb run id and key hyperparameters
+    run_id = wandb.run.id
+    optimizer_name = config.optimizer
+    lr = config.learning_rate
+    scheduler_name = config.scheduler
+    
+    model_filename = f"model_sweep_{run_id}_{optimizer_name}_lr{lr:.1e}_{scheduler_name}.pth"
+    model_path = os.path.join(save_dir, model_filename)
+    
+    # Save model state dict, optimizer state, and config
+    checkpoint = {
+        'encoder_state_dict': encoder.state_dict(),
+        'decoder_state_dict': decoder.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'config': dict(config),
+        'final_train_loss': avg_train_loss,
+        'total_steps': step_count,
+        'wandb_run_id': run_id
+    }
+    
+    torch.save(checkpoint, model_path)
+    print(f"Model saved to: {model_path}")
+    
+    # Log the model path to wandb for easy tracking
+    wandb.log({
+        "model_path": model_path,
+        "model_filename": model_filename
+    })
+    
+    # Save model as wandb artifact for better organization
+    model_artifact = wandb.Artifact(
+        name=f"model_sweep_{run_id}",
+        type="model",
+        description=f"Trained model with {optimizer_name} optimizer, lr={lr:.1e}, scheduler={scheduler_name}"
+    )
+    model_artifact.add_file(model_path)
+    wandb.log_artifact(model_artifact)
+    
     print("Done!")
 
 if __name__ == "__main__":
