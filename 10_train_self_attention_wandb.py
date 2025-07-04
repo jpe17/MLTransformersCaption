@@ -37,7 +37,7 @@ def train_self_attention_only():
     scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
 
     # --- 3. Training Loop (Epoch-based) ---
-    num_epochs = 10
+    num_epochs = 5
     print(f"Starting training for {num_epochs} epochs with Self-Attention Only...")
     print("Using enhanced positional embeddings and layer normalization for better self-attention")
     

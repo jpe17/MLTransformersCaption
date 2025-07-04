@@ -16,9 +16,9 @@ from loader import get_flickr_data
 # 🔧 Configurable Settings
 # ------------------------
 model_id = "Qwen/Qwen2.5-VL-3B-Instruct"
-images_dir = "data/images"  # Local images directory
+images_dir = "data/images"  # Local images directory. If not empty, use images from this folder instead of Flickr8k.
 output_file = "syntetic_data/captions.json"
-max_images = 10  # Limit for testing
+max_images = 5000  # Limit for testing
 
 # ------------------------
 # 🚀 Load model & processor
@@ -49,37 +49,50 @@ if device.type == 'cuda':
     model = model.half()
 
 # ------------------------
-# 📦 Load Flickr8k images
+# 📦 Load images (from folder or Flickr8k)
 # ------------------------
-print("📂 Loading Flickr8k dataset...")
-try:
-    # Get the data loaders (this will download if needed)
-    train_loader_fn, val_loader_fn = get_flickr_data(max_samples=100000, batch_size=1)
-    
-    # Collect all images from both train and val sets
-    print("🔄 Collecting images from dataset...")
-    all_images = []
-    
-    # Get training images
-    for pil_images, captions in train_loader_fn():
-        for img, caption in zip(pil_images, captions):
-            all_images.append((img, caption))
-    
-    # Get validation images
-    for pil_images, captions in val_loader_fn():
-        for img, caption in zip(pil_images, captions):
-            all_images.append((img, caption))
-    
-    # Limit for testing if needed
+all_images = []
+
+if images_dir and os.path.isdir(images_dir):
+    print(f"📂 Loading images from folder: {images_dir}")
+    # Accept common image formats
+    image_extensions = (".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp")
+    image_files = [f for f in sorted(os.listdir(images_dir)) if f.lower().endswith(image_extensions)]
     if max_images > 0:
-        all_images = all_images[:max_images]
-    
-    print(f"📷 Found {len(all_images)} images to process")
-    
-except Exception as e:
-    print(f"❌ Error loading Flickr8k dataset: {e}")
-    print("💡 Make sure you have internet connection for initial download")
-    exit(1)
+        image_files = image_files[:max_images]
+    print(f"📷 Found {len(image_files)} images to process")
+    for fname in image_files:
+        try:
+            img_path = os.path.join(images_dir, fname)
+            img = Image.open(img_path).convert("RGB")
+            all_images.append((img, fname))  # Use filename as 'original_caption'
+        except Exception as e:
+            print(f"❌ Error loading image {fname}: {e}")
+else:
+    print("📂 Loading Flickr8k dataset...")
+    try:
+        # Get the data loaders (this will download if needed)
+        train_loader_fn, val_loader_fn = get_flickr_data(max_samples=100000, batch_size=1)
+        
+        # Collect all images from both train and val sets
+        print("🔄 Collecting images from dataset...")
+        # Get training images
+        for pil_images, captions in train_loader_fn():
+            for img, caption in zip(pil_images, captions):
+                all_images.append((img, caption))
+        # Get validation images
+        for pil_images, captions in val_loader_fn():
+            for img, caption in zip(pil_images, captions):
+                all_images.append((img, caption))
+        # Limit for testing if needed
+        if max_images > 0:
+            all_images = all_images[:max_images]
+        print(f"📷 Found {len(all_images)} images to process")
+        
+    except Exception as e:
+        print(f"❌ Error loading Flickr8k dataset: {e}")
+        print("💡 Make sure you have internet connection for initial download")
+        exit(1)
 
 # ------------------------
 # 📝 Define prompt - Fixed format for Qwen2.5-VL
@@ -158,8 +171,7 @@ for i, (image, original_caption) in enumerate(all_images):
                         },
                                                 {
                             "type": "text", 
-                            "text": "Write exactly 2 captions for this image:\n\n1. Positive caption (overly optimistic, find beauty in anything):\n2. Negative caption (brutally honest, sarcastic roast):\n\nKeep each caption under 25 words. Be creative and funny."
-                        }
+                            "text": "Write exactly 2 captions for this image:\n\nPositive caption (unhinged hype man energy, shamelessly over-the-top flattery, blindly gassing them up like it’s life or death):\nNegative caption (surgical roast, ego-shattering sarcasm, brutal truth that hits like a breakup text — no swearing, just pure disrespect):\n\nKeep each caption under 20 words. Be wildly creative, darkly funny, and make it hit like emotional damage."  }
                     ],
                 }
             ]
