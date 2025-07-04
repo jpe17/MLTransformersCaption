@@ -19,6 +19,21 @@ def train_with_cross_attention():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
     print(f"Wandb config: {dict(config)}")
+    
+    # Check for problematic learning rates
+    if config.learning_rate > 0.1:
+        print(f"WARNING: Very high learning rate detected: {config.learning_rate}")
+        print("This might cause training instability. Consider using a lower learning rate.")
+        # Clamp to a safe maximum
+        config.learning_rate = min(config.learning_rate, 0.001)
+        print(f"Clamped learning rate to: {config.learning_rate}")
+    
+    if config.learning_rate < 1e-7:
+        print(f"WARNING: Very low learning rate detected: {config.learning_rate}")
+        print("This might cause very slow training.")
+        # Clamp to a safe minimum
+        config.learning_rate = max(config.learning_rate, 1e-6)
+        print(f"Clamped learning rate to: {config.learning_rate}")
 
     # --- 1. Data and Model Setup ---
     print("Initializing model and data...")
@@ -72,7 +87,7 @@ def train_with_cross_attention():
         scheduler = None
     
     # Use AMP for performance
-    scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
+    scaler = torch.amp.GradScaler('cuda', enabled=(device == 'cuda'))
 
     # --- 3. Training Loop (Epoch-based) ---
     num_epochs = config.num_epochs
@@ -114,12 +129,13 @@ def train_with_cross_attention():
             optimizer.zero_grad()
             scaler.scale(loss).backward()
             
-            scaler.unscale_(optimizer)
-            
             # Check for NaN gradients before clipping
+            scaler.unscale_(optimizer)
             total_norm = torch.nn.utils.clip_grad_norm_(trainable_params, config.grad_clip_norm)
             if torch.isnan(total_norm) or torch.isinf(total_norm):
                 print(f"Warning: NaN or Inf gradient norm detected: {total_norm}. Skipping step.")
+                # Reset the scaler state for next iteration
+                scaler.update()
                 continue
             
             scaler.step(optimizer)

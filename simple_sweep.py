@@ -12,7 +12,7 @@ sweep_config = {
     'parameters': {
         'num_epochs': {'value': 5},
         'optimizer': {'values': ['adamw', 'adam']},
-        'learning_rate': {'min': 1e-5, 'max': 5e-5, 'distribution': 'log_uniform'},  # More conservative range
+        'learning_rate': {'min': 1e-5, 'max': 5e-5, 'distribution': 'log_uniform_values'},  # Fixed: use log_uniform_values
         'weight_decay': {'min': 0.01, 'max': 0.05, 'distribution': 'uniform'},  # More conservative range
         'beta1': {'min': 0.9, 'max': 0.95, 'distribution': 'uniform'},  # Narrower range
         'beta2': {'min': 0.995, 'max': 0.999, 'distribution': 'uniform'},  # Narrower range
