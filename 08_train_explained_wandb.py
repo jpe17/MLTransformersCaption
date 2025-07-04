@@ -105,12 +105,22 @@ def train_with_cross_attention():
             if loss is None:
                 print("Warning: Loss is None. Skipping step.")
                 continue
+            
+            # Check for NaN or infinite loss
+            if torch.isnan(loss) or torch.isinf(loss):
+                print(f"Warning: NaN or Inf loss detected: {loss.item()}. Skipping step.")
+                continue
 
             optimizer.zero_grad()
             scaler.scale(loss).backward()
             
             scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(trainable_params, config.grad_clip_norm)
+            
+            # Check for NaN gradients before clipping
+            total_norm = torch.nn.utils.clip_grad_norm_(trainable_params, config.grad_clip_norm)
+            if torch.isnan(total_norm) or torch.isinf(total_norm):
+                print(f"Warning: NaN or Inf gradient norm detected: {total_norm}. Skipping step.")
+                continue
             
             scaler.step(optimizer)
             scaler.update()

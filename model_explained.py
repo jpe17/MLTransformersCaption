@@ -9,9 +9,14 @@ class VisionLanguageEncoder(VisionLanguageEncoderBase):
     prepares the data perfectly for our new cross-attention decoder.
     """
     def forward(self, pil_images, captions):
+        # Get the device from the model
+        device = next(self.qwen_model.parameters()).device
+        
         # 1. Process images with CLIP to get patch embeddings
         with torch.no_grad():
-            clip_inputs = self.clip_processor(images=pil_images, return_tensors="pt").to(self.qwen_model.device)
+            clip_inputs = self.clip_processor(images=pil_images, return_tensors="pt")
+            # Move clip inputs to the correct device
+            clip_inputs = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in clip_inputs.items()}
             vision_outputs = self.clip_model.vision_model(**clip_inputs)
             image_patch_embeddings = vision_outputs.last_hidden_state[:, 1:, :]  # Exclude CLS token
 
@@ -19,16 +24,16 @@ class VisionLanguageEncoder(VisionLanguageEncoderBase):
         image_patch_embeddings = self.image_adapter(image_patch_embeddings)
 
         # 3. Process text captions to get input and target tokens
-        tokenized = self.tokenizer(captions, padding=True, truncation=True, return_tensors="pt", add_special_tokens=False).to(self.qwen_model.device)
-        tokens = tokenized['input_ids']
+        tokenized = self.tokenizer(captions, padding=True, truncation=True, return_tensors="pt", add_special_tokens=False)
+        tokens = tokenized['input_ids'].to(device)
         
         sos = self.tokenizer.bos_token_id if self.tokenizer.bos_token_id is not None else self.tokenizer.eos_token_id
         eos = self.tokenizer.eos_token_id
         
-        sos_tokens = torch.full((tokens.shape[0], 1), sos, dtype=tokens.dtype, device=tokens.device)
+        sos_tokens = torch.full((tokens.shape[0], 1), sos, dtype=tokens.dtype, device=device)
         input_padded = torch.cat([sos_tokens, tokens], dim=1)
         
-        eos_tokens = torch.full((tokens.shape[0], 1), eos, dtype=tokens.dtype, device=tokens.device)
+        eos_tokens = torch.full((tokens.shape[0], 1), eos, dtype=tokens.dtype, device=device)
         target_padded = torch.cat([tokens, eos_tokens], dim=1)
 
         # 4. Get text embeddings from Qwen's embedding layer
@@ -36,11 +41,11 @@ class VisionLanguageEncoder(VisionLanguageEncoderBase):
             text_embeddings = self.qwen_model.get_input_embeddings()(input_padded)
 
         # 5. Add modality embeddings to distinguish between image and text
-        image_ids = torch.zeros(image_patch_embeddings.shape[:2], dtype=torch.long, device=image_patch_embeddings.device)
+        image_ids = torch.zeros(image_patch_embeddings.shape[:2], dtype=torch.long, device=device)
         image_mod_embs = self.modality_embedding(image_ids)
         final_image_embeddings = image_patch_embeddings + image_mod_embs
 
-        text_ids = torch.ones(text_embeddings.shape[:2], dtype=torch.long, device=text_embeddings.device)
+        text_ids = torch.ones(text_embeddings.shape[:2], dtype=torch.long, device=device)
         text_mod_embs = self.modality_embedding(text_ids)
         final_text_embeddings = text_embeddings + text_mod_embs
 
@@ -83,8 +88,15 @@ class CaptionDecoder(CaptionDecoderBase):
         # 4. LOSS CALCULATION (if training)
         loss = None
         if target_tokens is not None:
-            loss_fct = torch.nn.CrossEntropyLoss()
-            # The logits now directly correspond to the target tokens from start to end.
-            loss = loss_fct(logits.view(-1, logits.size(-1)), target_tokens.view(-1))
+            # Use proper loss function with padding token ignored (NO label smoothing to avoid NaN)
+            loss_fct = torch.nn.CrossEntropyLoss(
+                ignore_index=self.tokenizer.pad_token_id
+            )
+            # Shift logits and targets for causal language modeling
+            # logits: [batch_size, seq_len, vocab_size]
+            # target_tokens: [batch_size, seq_len]
+            shift_logits = logits[..., :-1, :].contiguous()
+            shift_labels = target_tokens[..., 1:].contiguous()
+            loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             
         return logits, loss 
