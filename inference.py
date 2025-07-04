@@ -16,11 +16,17 @@ class ImageCaptioner:
         self.device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
         print(f"Using device: {self.device}")
         
-        # If no model path provided, try to find the best model from sweep runs
+        # If no model path is provided, use a default or find the best one
         if model_path is None:
-            model_path = self.find_best_model()
-            if model_path is None:
-                raise ValueError("No trained models found. Please provide a model_path or train a model first.")
+            default_model_path = "saved_models/explained/explained_20_epochs.pth"
+            if Path(default_model_path).exists():
+                print(f"No model path provided. Using default: {default_model_path}")
+                model_path = default_model_path
+            else:
+                print(f"Default model '{default_model_path}' not found. Searching for best model in sweeps...")
+                model_path = self.find_best_model()
+                if model_path is None:
+                    raise ValueError("No trained models found. Please provide a model_path or train a model first.")
         
         # Load the model
         print(f"Loading model from: {model_path}")
