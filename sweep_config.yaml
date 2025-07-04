@@ -6,7 +6,7 @@ metric:
 parameters:
   # Training parameters
   num_epochs:
-    value: 5
+    value: 2
   
   # Optimizer parameters
   optimizer:
