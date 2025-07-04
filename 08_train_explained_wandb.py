@@ -48,6 +48,7 @@ def train_with_cross_attention():
                        list(encoder.modality_embedding.parameters()) + \
                        list(decoder.vision_cross_attention.parameters()) + \
                        list(decoder.attn_layer_norm.parameters()) + \
+                       [decoder.attention_scale] + \
                        [p for p in decoder.qwen_model.model.layers[-2:].parameters() if p.requires_grad]
 
     # Use sweep parameters for optimizer
@@ -109,21 +110,32 @@ def train_with_cross_attention():
         epoch_steps = 0
         
         for step, (pil_images, captions) in enumerate(train_batches):
-            # Move data processing inside the model's forward pass for cleaner code
-            image_embeddings, text_embeddings, target_tokens = encoder(pil_images, captions)
-            
-            # The target_tokens are already on the correct device from the encoder
-            
-            with torch.amp.autocast(device_type=device, enabled=(device == 'cuda')):
-                logits, loss = decoder(image_embeddings, text_embeddings, target_tokens)
-            
-            if loss is None:
-                print("Warning: Loss is None. Skipping step.")
-                continue
-            
-            # Check for NaN or infinite loss
-            if torch.isnan(loss) or torch.isinf(loss):
-                print(f"Warning: NaN or Inf loss detected: {loss.item()}. Skipping step.")
+            try:
+                # Move data processing inside the model's forward pass for cleaner code
+                image_embeddings, text_embeddings, target_tokens = encoder(pil_images, captions)
+                
+                # Check if encoder returned valid embeddings
+                if image_embeddings is None or text_embeddings is None or target_tokens is None:
+                    print("Warning: Encoder returned None values. Skipping step.")
+                    continue
+                
+                # The target_tokens are already on the correct device from the encoder
+                
+                with torch.amp.autocast(device_type=device, enabled=(device == 'cuda')):
+                    logits, loss = decoder(image_embeddings, text_embeddings, target_tokens)
+                
+                # Check if decoder returned valid outputs
+                if logits is None or loss is None:
+                    print("Warning: Decoder returned None values. Skipping step.")
+                    continue
+                
+                # Check for NaN or infinite loss
+                if torch.isnan(loss) or torch.isinf(loss):
+                    print(f"Warning: NaN or Inf loss detected: {loss.item()}. Skipping step.")
+                    continue
+                    
+            except Exception as e:
+                print(f"Warning: Exception during forward pass: {e}. Skipping step.")
                 continue
 
             optimizer.zero_grad()
@@ -131,6 +143,20 @@ def train_with_cross_attention():
             
             # Check for NaN gradients before clipping
             scaler.unscale_(optimizer)
+            
+            # Check individual parameter gradients for NaN/Inf
+            has_nan_grad = False
+            for param in trainable_params:
+                if param.grad is not None:
+                    if torch.isnan(param.grad).any() or torch.isinf(param.grad).any():
+                        has_nan_grad = True
+                        break
+            
+            if has_nan_grad:
+                print("Warning: NaN or Inf gradients detected in parameters. Skipping step.")
+                scaler.update()
+                continue
+            
             total_norm = torch.nn.utils.clip_grad_norm_(trainable_params, config.grad_clip_norm)
             if torch.isnan(total_norm) or torch.isinf(total_norm):
                 print(f"Warning: NaN or Inf gradient norm detected: {total_norm}. Skipping step.")
