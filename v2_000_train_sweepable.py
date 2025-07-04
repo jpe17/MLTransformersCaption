@@ -181,7 +181,8 @@ def train_sweepable(config):
                 if config.temperature > 0:
                     top_k_logits /= config.temperature
                 probs = torch.nn.functional.softmax(top_k_logits, dim=-1)
-                next_token_id = torch.multinomial(probs, 1)
+                next_token_idx = torch.multinomial(probs, 1)
+                next_token_id = top_k_indices.gather(-1, next_token_idx)
                 if next_token_id.item() == decoder.tokenizer.eos_token_id:
                     break
                 generated_ids.append(next_token_id.item())
@@ -227,7 +228,8 @@ def train_sweepable(config):
                 if config.temperature > 0:
                     top_k_logits /= config.temperature
                 probs = torch.nn.functional.softmax(top_k_logits, dim=-1)
-                next_token_id = torch.multinomial(probs, 1)
+                next_token_idx = torch.multinomial(probs, 1)
+                next_token_id = top_k_indices.gather(-1, next_token_idx)
                 if next_token_id.item() == decoder.tokenizer.eos_token_id:
                     break
                 generated_ids.append(next_token_id.item())
