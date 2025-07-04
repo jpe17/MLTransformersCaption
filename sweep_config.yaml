@@ -13,12 +13,12 @@ parameters:
     values: ["adamw", "adam"]
   
   learning_rate:
-    distribution: log_uniform_values
+    distribution: log_uniform
     min: 1e-6
     max: 1e-4
   
   weight_decay:
-    distribution: log_uniform_values
+    distribution: log_uniform
     min: 0.001
     max: 0.1
   
