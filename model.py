@@ -15,11 +15,7 @@ class VisionLanguageEncoder(nn.Module):
         self.qwen_model = AutoModel.from_pretrained("Qwen/Qwen3-0.6B-Base")
         
         # Load CLIP model and processor
-        self.clip_model = CLIPModel.from_pretrained(
-            "openai/clip-vit-base-patch32", 
-            variant="fp16", 
-            torch_dtype=torch.float16
-        )
+        self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
         self.clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)
         
         # Simple modality embeddings for Qwen compatibility

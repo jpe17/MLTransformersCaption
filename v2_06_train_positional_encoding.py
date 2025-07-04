@@ -95,7 +95,7 @@ def train_v2_06_positional_encoding():
     wandb.init(project="image-captioning-v2-experiments", name="v2_06_positional_encoding", config={
         "learning_rate": 1e-5,
         "weight_decay": 0.01,
-        "num_epochs": 20,
+        "num_epochs": 3,
         "grad_clip_norm": 1.0,
         "model": "v2_06_positional_encoding"
     })

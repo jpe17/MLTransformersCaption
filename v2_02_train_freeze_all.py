@@ -27,7 +27,7 @@ def train_v2_02_freeze_all():
     wandb.init(project="image-captioning-v2-experiments", name="v2_02_freeze_all", config={
         "learning_rate": 1e-5,
         "weight_decay": 0.01,
-        "num_epochs": 20,
+        "num_epochs": 3,
         "grad_clip_norm": 1.0,
         "model": "v2_02_freeze_all"
     })
