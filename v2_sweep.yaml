@@ -6,7 +6,7 @@ metric:
 parameters:
   # --- Training Stability ---
   num_epochs:
-    value: 3  # A bit more training time
+    value: 2  # A bit more training time
   grad_clip_norm:
     distribution: uniform
     min: 0.8
