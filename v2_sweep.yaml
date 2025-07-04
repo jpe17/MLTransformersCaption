@@ -1,0 +1,45 @@
+program: v2_03_train_sweepable.py
+method: bayes
+metric:
+  name: final_avg_train_loss
+  goal: minimize
+parameters:
+  # --- Training Stability ---
+  num_epochs:
+    value: 3  # A bit more training time
+  grad_clip_norm:
+    distribution: uniform
+    min: 0.8
+    max: 1.2
+  
+  # --- Optimizer (AdamW only for stability) ---
+  learning_rate:
+    distribution: log_uniform
+    min: 1e-5  # Narrow, safe range for fine-tuning
+    max: 5e-5
+  weight_decay:
+    distribution: log_uniform
+    min: 0.005
+    max: 0.02
+  beta1:
+    value: 0.9
+  beta2:
+    distribution: uniform
+    min: 0.995
+    max: 0.999
+
+  # --- Generation/Validation ---
+  top_k:
+    distribution: int_uniform
+    min: 40
+    max: 60
+  temperature:
+    distribution: uniform
+    min: 0.9
+    max: 1.1
+
+# --- Project Info ---
+project: image-captioning-v2-sweep
+name: stable-sweep-1
+description: "A more stable hyperparameter sweep with conservative ranges."
+count: 15 
