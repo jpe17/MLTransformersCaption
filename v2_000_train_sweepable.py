@@ -11,7 +11,7 @@ from loader import get_flickr_data
 
 # --- Sweep Parameter Space ---
 SWEEP_SPACE = {
-    'num_epochs': 3,
+    'num_epochs': 1,
     'grad_clip_norm': (0.8, 1.2),
     'learning_rate': (1e-5, 5e-5),
     'weight_decay': (0.005, 0.02),
