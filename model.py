@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from transformers import AutoTokenizer, AutoModel, CLIPProcessor, CLIPModel
 from torch.nn.utils.rnn import pad_sequence
+import torch.nn.functional as F
 
 
 class VisionLanguageEncoder(nn.Module):
@@ -141,7 +142,10 @@ class CaptionDecoder(nn.Module):
             text_logits = logits[:, num_patches-1:-1, :]
             
             # Flatten for cross entropy loss
-            loss_fct = torch.nn.CrossEntropyLoss()
+            loss_fct = torch.nn.CrossEntropyLoss(
+                ignore_index=self.tokenizer.pad_token_id,
+                label_smoothing=0.1
+            )
             loss = loss_fct(text_logits.reshape(-1, text_logits.size(-1)), target_tokens.reshape(-1))
         
         return logits, loss
