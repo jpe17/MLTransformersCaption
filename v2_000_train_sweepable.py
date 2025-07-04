@@ -5,6 +5,7 @@ import wandb
 import os
 import random
 import numpy as np
+from PIL import Image
 from model_explained import VisionLanguageEncoder as VisionLanguageEncoderBase, CaptionDecoder
 from loader import get_flickr_data
 
@@ -135,9 +136,29 @@ def train_sweepable(config):
                     "learning_rate": optimizer.param_groups[0]['lr'],
                     "epoch": epoch
                 })
+
     print("\n✅ Training complete! Running validation...")
     encoder.eval()
     decoder.eval()
+
+    # --- Quantitative Validation (Loss) ---
+    print("Calculating validation loss...")
+    val_loss = 0
+    val_steps = 0
+    val_batches_for_loss = val_loader_fn()
+    with torch.no_grad():
+        for step, (pil_images, captions) in enumerate(itertools.islice(val_batches_for_loss, 20)):
+            image_embeddings, text_embeddings, target_tokens = encoder(pil_images, captions)
+            with torch.amp.autocast(device_type=device, enabled=(device == 'cuda')):
+                _, loss = decoder(image_embeddings, text_embeddings, target_tokens)
+            if loss is not None and not torch.isnan(loss) and not torch.isinf(loss):
+                val_loss += loss.item()
+                val_steps += 1
+    avg_val_loss = val_loss / val_steps if val_steps > 0 else 0
+    print(f"  Average validation loss over {val_steps} batches: {avg_val_loss:.4f}")
+
+    # --- Qualitative Validation (Image Captioning Examples) ---
+    print("Generating validation examples...")
     val_batches = val_loader_fn()
     validation_table = wandb.Table(columns=["Image", "True Caption", "Predicted Caption"])
     with torch.no_grad():
@@ -174,9 +195,55 @@ def train_sweepable(config):
     avg_train_loss = total_loss / step_count if step_count > 0 else 0
     wandb.log({
         "final_avg_train_loss": avg_train_loss,
+        "avg_val_loss": avg_val_loss,
         "validation_examples": validation_table
     })
+    
     print(f"\nFinal Average Training Loss: {avg_train_loss:.4f}")
+
+    # --- Inference on a specific image ---
+    print("\n--- Running inference on test_01.png ---")
+    try:
+        image_path = "test_01.png"
+        if not os.path.exists(image_path):
+            print(f"Warning: {image_path} not found. Skipping inference on this image.")
+        else:
+            pil_image = Image.open(image_path).convert("RGB")
+            
+            image_embeddings, _, _ = encoder([pil_image], ["dummy caption"])
+            generated_ids = []
+            sos_id = decoder.tokenizer.bos_token_id or decoder.tokenizer.eos_token_id
+            input_ids = torch.tensor([[sos_id]], dtype=torch.long, device=device)
+            for _ in range(30):
+                text_embeddings = decoder.qwen_model.get_input_embeddings()(input_ids)
+                text_mod_id = torch.ones_like(input_ids, device=device)
+                text_mod_emb = encoder.modality_embedding(text_mod_id)
+                text_embeddings_final = text_embeddings + text_mod_emb
+                with torch.amp.autocast(device_type=device, enabled=(device == 'cuda')):
+                    logits, _ = decoder(image_embeddings, text_embeddings_final)
+                next_token_logits = logits[:, -1, :]
+                k = config.top_k
+                top_k_logits, top_k_indices = torch.topk(next_token_logits, k)
+                if config.temperature > 0:
+                    top_k_logits /= config.temperature
+                probs = torch.nn.functional.softmax(top_k_logits, dim=-1)
+                next_token_id = torch.multinomial(probs, 1)
+                if next_token_id.item() == decoder.tokenizer.eos_token_id:
+                    break
+                generated_ids.append(next_token_id.item())
+                input_ids = torch.cat([input_ids, next_token_id], dim=1)
+            predicted_caption = decoder.tokenizer.decode(generated_ids, skip_special_tokens=True)
+            
+            print(f"\nImage: {image_path}")
+            print(f"  Predicted Caption: {predicted_caption}")
+            
+            wandb.log({
+                "test_inference_image": wandb.Image(pil_image, caption=f"Predicted: {predicted_caption}")
+            })
+
+    except Exception as e:
+        print(f"An error occurred during inference on {image_path}: {e}")
+
     print("Sweep run finished!")
 
 if __name__ == "__main__":
