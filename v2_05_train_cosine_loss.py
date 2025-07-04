@@ -27,19 +27,22 @@ class CaptionDecoderCosineLoss(CaptionDecoderBase):
         fused_embeddings = self.attn_layer_norm(text_embeddings + attn_output)
 
         # 3. DECODING: Pass the fused embeddings through the causal language model
-        outputs = self.qwen_model(inputs_embeds=fused_embeddings)
+        outputs = self.qwen_model(inputs_embeds=fused_embeddings, output_hidden_states=True)
         logits = outputs.logits
 
         # 4. COSINE SIMILARITY LOSS (if training)
         loss = None
         if target_tokens is not None:
+            # Use the last hidden state as the predicted embeddings
+            predicted_embeddings = outputs.hidden_states[-1]
+            
             # Get the target embeddings from the embedding layer
             target_embeddings = self.qwen_model.get_input_embeddings()(target_tokens)
             
             # Shift embeddings for causal language modeling
-            # fused_embeddings: [batch_size, seq_len, hidden_size]
+            # predicted_embeddings: [batch_size, seq_len, hidden_size]
             # target_embeddings: [batch_size, seq_len, hidden_size]
-            shift_predicted = fused_embeddings[..., :-1, :].contiguous()
+            shift_predicted = predicted_embeddings[..., :-1, :].contiguous()
             shift_target = target_embeddings[..., 1:, :].contiguous()
             
             # Flatten for cosine similarity calculation
@@ -72,7 +75,7 @@ def train_v2_05_cosine_loss():
     wandb.init(project="image-captioning-v2-experiments", name="v2_05_cosine_loss", config={
         "learning_rate": 1e-5,
         "weight_decay": 0.01,
-        "num_epochs": 3,
+        "num_epochs": 5,
         "grad_clip_norm": 1.0,
         "model": "v2_05_cosine_loss"
     })
@@ -246,7 +249,7 @@ def train_v2_05_cosine_loss():
             
             image_embeddings, _, _ = encoder([pil_image], ["dummy caption"])
             generated_ids = []
-            sos_id = decoder.tokenizer.bos_token_id or decoder.tokenizer.eos_token_id
+            sos_id = decoder.tokenizer.bos_token_id if decoder.tokenizer.bos_token_id is not None else decoder.tokenizer.eos_token_id
             input_ids = torch.tensor([[sos_id]], dtype=torch.long, device=device)
             for _ in range(30):
                 text_embeddings = decoder.qwen_model.get_input_embeddings()(input_ids)

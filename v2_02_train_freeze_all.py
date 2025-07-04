@@ -27,7 +27,7 @@ def train_v2_02_freeze_all():
     wandb.init(project="image-captioning-v2-experiments", name="v2_02_freeze_all", config={
         "learning_rate": 1e-5,
         "weight_decay": 0.01,
-        "num_epochs": 3,
+        "num_epochs": 5,
         "grad_clip_norm": 1.0,
         "model": "v2_02_freeze_all"
     })
@@ -202,7 +202,7 @@ def train_v2_02_freeze_all():
             
             image_embeddings, _, _ = encoder([pil_image], ["dummy caption"])
             generated_ids = []
-            sos_id = decoder.tokenizer.bos_token_id or decoder.tokenizer.eos_token_id
+            sos_id = decoder.tokenizer.bos_token_id if decoder.tokenizer.bos_token_id is not None else decoder.tokenizer.eos_token_id
             input_ids = torch.tensor([[sos_id]], dtype=torch.long, device=device)
             for _ in range(30):
                 text_embeddings = decoder.qwen_model.get_input_embeddings()(input_ids)
