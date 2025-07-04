@@ -259,7 +259,8 @@ def train_v2_05_cosine_loss():
                 k = 50
                 top_k_logits, top_k_indices = torch.topk(next_token_logits, k)
                 probs = torch.nn.functional.softmax(top_k_logits, dim=-1)
-                next_token_id = torch.multinomial(probs, 1)
+                next_token_relative_idx = torch.multinomial(probs, num_samples=1)
+                next_token_id = torch.gather(top_k_indices, -1, next_token_relative_idx)
                 if next_token_id.item() == decoder.tokenizer.eos_token_id:
                     break
                 generated_ids.append(next_token_id.item())
